@@ -1,0 +1,118 @@
+name: hatid_sundo
+description: "Ride hailing application - Client, Rider, and Admin"
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.0-200.1.beta
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Supabase
+  supabase_flutter: ^2.8.4
+
+  # State Management
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # Navigation
+  go_router: ^14.8.1
+
+  # Maps
+  maplibre_gl: ^0.25.0
+
+  # Location
+  geolocator: ^13.0.2
+  geocoding: ^3.0.0
+
+  # HTTP Client
+  dio: ^5.7.0
+
+  # Authentication
+  google_sign_in: ^6.2.2
+
+  # Push Notifications
+  firebase_core: ^3.9.0
+  firebase_messaging: ^15.2.0
+  flutter_local_notifications: ^18.0.1
+
+  # Storage
+  shared_preferences: ^2.3.4
+  path_provider: ^2.1.5
+
+  # UI Components
+  flutter_svg: ^2.0.17
+  cached_network_image: ^3.4.1
+  shimmer: ^3.0.0
+
+  # Forms & Validation
+  flutter_form_builder: ^10.2.0
+  form_builder_validators: ^11.1.0
+
+  # Image Picker for document upload
+  image_picker: ^1.1.2
+
+  # Charts for Admin Dashboard
+  fl_chart: ^0.70.2
+
+  # Data Export
+  csv: ^6.0.0
+  universal_html: ^2.2.4
+
+  # Date/Time Formatting
+  intl: any
+
+  # UUID Generation
+  uuid: ^4.5.1
+
+  # Connectivity
+  connectivity_plus: ^6.1.1
+
+  # Workmanager for background tasks
+  workmanager: ^0.9.0+3
+
+  # Onboarding
+  tutorial_coach_mark: ^1.2.12
+
+  # URL Launcher
+  url_launcher: ^6.3.1
+
+  # File operations
+
+  # JSON Serialization
+  json_annotation: ^4.9.0
+  freezed_annotation: ^2.4.4
+
+  # Permission Handler
+  permission_handler: ^11.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.14
+  riverpod_generator: ^2.6.3
+  freezed: ^2.5.7
+  json_serializable: ^6.9.2
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/animations/
+
+  fonts:
+    - family: Outfit
+      fonts:
+        - asset: assets/fonts/Outfit-Regular.ttf
+        - asset: assets/fonts/Outfit-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Outfit-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Outfit-Bold.ttf
+          weight: 700
