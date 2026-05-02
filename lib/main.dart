@@ -82,8 +82,11 @@ class _HatidSundoAppState extends ConsumerState<HatidSundoApp> {
     if (!mounted) return;
 
     try {
-      final updateService = ref.read(updateServiceProvider);
-      await updateService.checkForUpdate(context);
+      final navContext = rootNavigatorKey.currentContext;
+      if (navContext != null && navContext.mounted) {
+        final updateService = ref.read(updateServiceProvider);
+        await updateService.checkForUpdate(navContext);
+      }
     } catch (e) {
       debugPrint('Update check failed (non-blocking): $e');
     }

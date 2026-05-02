@@ -90,11 +90,15 @@ class Routes {
   static const String adminStatistics = '/admin/statistics';
 }
 
+/// Global key for root navigator
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 /// Router provider
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: Routes.splash,
     debugLogDiagnostics: kDebugMode,
     redirect: (context, state) {
