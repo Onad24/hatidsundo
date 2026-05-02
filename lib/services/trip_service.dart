@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -43,14 +45,32 @@ class TripService {
     );
     print('DEBUG createTrip: got route, distance=${route.distanceKm}km');
 
-    // Fare = ₱25 base + floor(driver→pickup km) × ₱8 + floor(pickup→dest km) × ₱8
-    // Night rate (9PM–5AM): distance component × 1.2
-    const baseFare = 25.0;
-    const perKmRate = 8.0;
+    // Fetch fare settings from database (falls back to defaults on error)
+    double baseFare = 25.0;
+    double perKmRate = 8.0;
+    double nightRateMultiplier = 1.2;
+    int nightStartHour = 21;
+    int nightEndHour = 5;
+    try {
+      final fareRow = await _supabaseService
+          .from('fare_settings')
+          .select()
+          .eq('id', 1)
+          .single();
+      baseFare = (fareRow['base_fare'] as num?)?.toDouble() ?? 25.0;
+      perKmRate = (fareRow['per_km_rate'] as num?)?.toDouble() ?? 8.0;
+      nightRateMultiplier =
+          (fareRow['night_rate_multiplier'] as num?)?.toDouble() ?? 1.2;
+      nightStartHour = (fareRow['night_start_hour'] as int?) ?? 21;
+      nightEndHour = (fareRow['night_end_hour'] as int?) ?? 5;
+    } catch (e) {
+      debugPrint('Could not fetch fare settings, using defaults: $e');
+    }
+
     final driverKm = nearestDriverDistanceKm ?? 0.0;
-    final nightMultiplier = AppConstants.isNightTime(DateTime.now())
-        ? AppConstants.nightRateMultiplier
-        : 1.0;
+    final hour = DateTime.now().hour;
+    final isNight = hour >= nightStartHour || hour < nightEndHour;
+    final nightMultiplier = isNight ? nightRateMultiplier : 1.0;
     final estimatedFare =
         baseFare +
         (driverKm.floorToDouble() * perKmRate) +
@@ -84,10 +104,9 @@ class TripService {
         .single();
     print('DEBUG createTrip: insert successful, id=${result['id']}');
 
-    // Call match_driver Edge Function (non-blocking - trip is already saved)
-    print('DEBUG createTrip: calling match_driver function...');
+    // Notify nearby riders via match_driver (sends FCM push notifications)
     try {
-      await _supabaseService.callFunction(
+      final matchResponse = await _supabaseService.callFunction(
         'match_driver',
         body: {
           'trip_id': result['id'],
@@ -95,41 +114,42 @@ class TripService {
           'pickup_lng': pickupLng,
         },
       );
-      print('DEBUG createTrip: match_driver called');
+      print('DEBUG createTrip: match_driver notified ${matchResponse.data?['notified_drivers'] ?? 0} drivers');
     } catch (e) {
-      // Edge Function may not be deployed - trip is already saved, so continue
-      print('DEBUG createTrip: match_driver failed (optional): $e');
+      // Notifications are optional - riders will see trips via realtime feed
+      print('DEBUG createTrip: match_driver notification failed (optional): $e');
     }
 
     return TripModel.fromJson(result);
   }
 
-  /// Accept a trip (for drivers)
+  /// Accept a trip (for drivers) — uses atomic RPC to prevent race conditions.
+  /// Only one rider can accept; concurrent attempts will fail gracefully.
   Future<TripModel> acceptTrip(String tripId, String riderId) async {
-    final result = await _supabaseService
-        .from(AppConstants.tripsTable)
-        .update({
-          'rider_id': riderId,
-          'status': AppConstants.tripStatusAccepted,
-          'accepted_at': DateTime.now().toIso8601String(),
-        })
-        .eq('id', tripId)
-        .eq('status', AppConstants.tripStatusPending)
-        .select()
-        .single();
+    final result = await _supabaseService.client.rpc(
+      'accept_trip_rpc',
+      params: {'p_trip_id': tripId},
+    );
 
-    // Notify client via Edge Function (best-effort)
-    try {
-      await _supabaseService.callFunction(
-        'trip_update',
-        body: {'trip_id': tripId, 'event': 'driver_assigned'},
-      );
-    } catch (e) {
-      print('WARNING: trip_update notification failed (non-blocking): $e');
+    if (result == null) {
+      throw Exception('Trip is no longer available');
     }
 
-    return TripModel.fromJson(result);
+    final tripData = result as Map<String, dynamic>;
+
+    // Notify client that a driver was assigned
+    _sendTripNotification(
+      tripData['client_id'],
+      tripId,
+      'Driver Assigned',
+      'A driver has accepted your ride request!',
+      'driver_assigned',
+    );
+
+    return TripModel.fromJson(tripData);
   }
+
+
 
   /// Update trip status to driver arriving
   Future<TripModel> markDriverArriving(String tripId) async {
@@ -138,7 +158,18 @@ class TripService {
       params: {'p_trip_id': tripId},
     );
 
-    return TripModel.fromJson(result as Map<String, dynamic>);
+    final tripData = result as Map<String, dynamic>;
+
+    // Notify client that driver is arriving
+    _sendTripNotification(
+      tripData['client_id'],
+      tripId,
+      'Driver Arriving',
+      'Your driver is on the way to pick you up!',
+      'driver_arriving',
+    );
+
+    return TripModel.fromJson(tripData);
   }
 
   /// Start the trip
@@ -148,7 +179,18 @@ class TripService {
       params: {'p_trip_id': tripId},
     );
 
-    return TripModel.fromJson(result as Map<String, dynamic>);
+    final tripData = result as Map<String, dynamic>;
+
+    // Notify client that trip started
+    _sendTripNotification(
+      tripData['client_id'],
+      tripId,
+      'Trip Started',
+      'Your trip has started. Enjoy the ride!',
+      'trip_started',
+    );
+
+    return TripModel.fromJson(tripData);
   }
 
   /// Complete the trip
@@ -161,7 +203,41 @@ class TripService {
     );
 
     print('DEBUG completeTrip: RPC result=$result');
-    return TripModel.fromJson(result as Map<String, dynamic>);
+    final tripData = result as Map<String, dynamic>;
+
+    // Notify client that trip is completed
+    final fare = tripData['fare_final'] ?? tripData['fare_estimated'] ?? 0;
+    _sendTripNotification(
+      tripData['client_id'],
+      tripId,
+      'Trip Completed',
+      'Your trip is complete. Fare: ₱${(fare as num).toStringAsFixed(0)}',
+      'trip_completed',
+    );
+
+    return TripModel.fromJson(tripData);
+  }
+
+  /// Send a push notification to a user about a trip event (fire-and-forget)
+  void _sendTripNotification(
+    String? userId,
+    String tripId,
+    String title,
+    String body,
+    String type,
+  ) {
+    if (userId == null) return;
+    _supabaseService.callFunction(
+      'send_notification',
+      body: {
+        'user_id': userId,
+        'title': title,
+        'body': body,
+        'data': {'type': type, 'trip_id': tripId},
+      },
+    ).catchError((e) {
+      print('WARNING: $type notification failed (non-blocking): $e');
+    });
   }
 
   /// Cancel the trip
@@ -357,6 +433,73 @@ class TripService {
     };
 
     return controller.stream;
+  }
+
+  /// Broadcast a route polyline update from rider to client
+  Future<void> broadcastRouteUpdate({
+    required String tripId,
+    required String polyline,
+    required double etaMinutes,
+    required double distanceKm,
+  }) async {
+    try {
+      final channel = _supabaseService.channel('trip_route_$tripId');
+      await channel.sendBroadcastMessage(
+        event: 'route_update',
+        payload: {
+          'polyline': polyline,
+          'eta_minutes': etaMinutes,
+          'distance_km': distanceKm,
+          'timestamp': DateTime.now().toIso8601String(),
+        },
+      );
+    } catch (e) {
+      print('DEBUG: broadcastRouteUpdate error: $e');
+    }
+  }
+
+  /// Subscribe to route updates for a trip (used by client)
+  Stream<Map<String, dynamic>> subscribeRouteUpdates(String tripId) {
+    final controller = StreamController<Map<String, dynamic>>.broadcast();
+
+    final channel = _supabaseService.channel('trip_route_sub_$tripId');
+    channel
+        .onBroadcast(
+          event: 'route_update',
+          callback: (payload) {
+            print('DEBUG: Received route broadcast for trip $tripId');
+            controller.add(payload);
+          },
+        )
+        .subscribe();
+
+    controller.onCancel = () {
+      channel.unsubscribe();
+    };
+
+    return controller.stream;
+  }
+
+  /// Send an FCM notification via Edge Function
+  Future<void> sendPushNotification({
+    required String userId,
+    required String title,
+    required String body,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      await _supabaseService.callFunction(
+        'send_notification',
+        body: {
+          'user_id': userId,
+          'title': title,
+          'body': body,
+          'data': data ?? {},
+        },
+      );
+    } catch (e) {
+      print('DEBUG: sendPushNotification failed (non-blocking): $e');
+    }
   }
 }
 

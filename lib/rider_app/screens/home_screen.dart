@@ -320,9 +320,12 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                               TextButton(
                                 onPressed: () => context.push(Routes.riderFees),
                                 style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
                                   minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
                                 ),
                                 child: const Text(
                                   'View Fees',
@@ -646,8 +649,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                             ? SnackBarAction(
                                 label: 'View Fees',
                                 textColor: Colors.white,
-                                onPressed: () =>
-                                    context.push(Routes.riderFees),
+                                onPressed: () => context.push(Routes.riderFees),
                               )
                             : null,
                       ),
@@ -658,9 +660,24 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                 final success = await ref
                     .read(tripStateProvider.notifier)
                     .acceptRide(trip.id);
-                if (success && context.mounted) {
-                  // Refresh the pending trips list
-                  ref.invalidate(pendingTripsProvider);
+                if (context.mounted) {
+                  if (success) {
+                    // Refresh the pending trips list
+                    ref.invalidate(pendingTripsProvider);
+                  } else {
+                    // Show error (likely race condition - trip already taken)
+                    final error = ref.read(tripStateProvider).error;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          error ?? 'Failed to accept ride. Try another one.',
+                        ),
+                        backgroundColor: AppTheme.errorColor,
+                      ),
+                    );
+                    // Refresh list to remove the stale trip card
+                    ref.invalidate(pendingTripsProvider);
+                  }
                 }
               },
               style: ElevatedButton.styleFrom(

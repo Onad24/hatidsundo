@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/theme.dart';
 import '../../state/state.dart';
+import '../../services/fare_settings_service.dart';
 
 /// Rider earnings screen
 class EarningsScreen extends ConsumerWidget {
@@ -24,10 +25,15 @@ class EarningsScreen extends ConsumerWidget {
       ),
       body: tripHistory.when(
         data: (trips) {
+          // Get platform fee from settings
+          final fareSettingsAsync = ref.watch(fareSettingsProvider);
+          final platformFeePct = fareSettingsAsync.valueOrNull?.platformFeePercent ?? 0.10;
+          final driverSharePct = 1.0 - platformFeePct;
+
           // Calculate earnings (fare - platform fee)
           final totalEarnings = trips.fold<double>(0, (sum, trip) {
             final fare = trip.fareFinal ?? trip.fareEstimated;
-            final platformFee = fare * 0.1;
+            final platformFee = fare * platformFeePct;
             return sum + (fare - platformFee);
           });
 
@@ -38,7 +44,7 @@ class EarningsScreen extends ConsumerWidget {
 
           final todayEarnings = todayTrips.fold<double>(0, (sum, trip) {
             final fare = trip.fareFinal ?? trip.fareEstimated;
-            return sum + (fare * 0.9);
+            return sum + (fare * driverSharePct);
           });
 
           return ListView(
@@ -135,7 +141,7 @@ class EarningsScreen extends ConsumerWidget {
               else
                 ...trips.take(10).map((trip) {
                   final fare = trip.fareFinal ?? trip.fareEstimated;
-                  final earnings = fare * 0.9;
+                  final earnings = fare * driverSharePct;
                   final dateFormat = DateFormat('MMM d, h:mm a');
 
                   return Container(

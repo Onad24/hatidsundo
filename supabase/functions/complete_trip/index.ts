@@ -3,6 +3,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { sendFcmNotification } from '../_shared/fcm.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -57,15 +58,42 @@ serve(async (req) => {
       );
     }
 
-    // Calculate final fare
-    // Formula: ₱25 base + floor(driver→pickup km) × ₱8 + floor(pickup→dest km) × ₱8
-    const BASE_FARE = 25;
-    const PER_KM_RATE = 8;
+    // Fetch fare settings from database (falls back to defaults)
+    let BASE_FARE = 25;
+    let PER_KM_RATE = 8;
+    let NIGHT_RATE_MULTIPLIER = 1.2;
+    let NIGHT_START_HOUR = 21;
+    let NIGHT_END_HOUR = 5;
+    let PLATFORM_FEE_PERCENT = 0.10;
+
+    try {
+      const { data: fareRow } = await supabaseClient
+        .from('fare_settings')
+        .select('*')
+        .eq('id', 1)
+        .single();
+
+      if (fareRow) {
+        BASE_FARE = fareRow.base_fare ?? 25;
+        PER_KM_RATE = fareRow.per_km_rate ?? 8;
+        NIGHT_RATE_MULTIPLIER = fareRow.night_rate_multiplier ?? 1.2;
+        NIGHT_START_HOUR = fareRow.night_start_hour ?? 21;
+        NIGHT_END_HOUR = fareRow.night_end_hour ?? 5;
+        PLATFORM_FEE_PERCENT = fareRow.platform_fee_percent ?? 0.10;
+      }
+    } catch (e) {
+      console.log('Could not fetch fare settings, using defaults:', e);
+    }
+
+    // Apply night rate if applicable
+    const currentHour = new Date().getHours();
+    const isNight = currentHour >= NIGHT_START_HOUR || currentHour < NIGHT_END_HOUR;
+    const nightMultiplier = isNight ? NIGHT_RATE_MULTIPLIER : 1.0;
 
     const driverPickupKm = Math.floor(trip.driver_pickup_distance_km ?? 0);
     const destKm = Math.floor(trip.distance_km ?? 0);
-    const finalFare = BASE_FARE + (driverPickupKm * PER_KM_RATE) + (destKm * PER_KM_RATE);
-    const platformFee = finalFare * 0.10; // 10% platform fee
+    const finalFare = BASE_FARE + (driverPickupKm * PER_KM_RATE) + (destKm * PER_KM_RATE * nightMultiplier);
+    const platformFee = finalFare * PLATFORM_FEE_PERCENT;
 
     // Update trip as completed
     const { error: updateError } = await supabaseClient
@@ -112,23 +140,31 @@ serve(async (req) => {
         .eq('user_id', trip.rider_id);
     }
 
-    // Create notifications
-    await supabaseClient.from('notifications').insert([
-      {
-        user_id: trip.client_id,
-        type: 'trip_completed',
-        title: 'Trip Completed',
-        body: `Your trip has been completed. Fare: ₱${finalFare.toFixed(0)}`,
-        payload: { trip_id, fare: finalFare },
-      },
-      {
-        user_id: trip.rider_id,
-        type: 'trip_completed',
-        title: 'Trip Completed',
-        body: `Trip completed. Earnings: ₱${(finalFare - platformFee).toFixed(0)}`,
-        payload: { trip_id, earnings: finalFare - platformFee },
-      },
-    ]);
+    // Notify client via shared fcm module
+    try {
+      await sendFcmNotification(
+        supabaseClient,
+        trip.client_id,
+        'Trip Completed',
+        `Your trip has been completed. Fare: ₱${finalFare.toFixed(0)}`,
+        { type: 'trip_completed', trip_id: trip_id, fare: finalFare.toString() }
+      );
+    } catch (e) {
+      console.error('Failed to send trip completed notification to client:', e);
+    }
+
+    // Notify rider via shared fcm module
+    try {
+      await sendFcmNotification(
+        supabaseClient,
+        trip.rider_id,
+        'Trip Completed',
+        `Trip completed. Earnings: ₱${(finalFare - platformFee).toFixed(0)}`,
+        { type: 'trip_completed', trip_id: trip_id, earnings: (finalFare - platformFee).toString() }
+      );
+    } catch (e) {
+      console.error('Failed to send trip completed notification to rider:', e);
+    }
 
     return new Response(
       JSON.stringify({

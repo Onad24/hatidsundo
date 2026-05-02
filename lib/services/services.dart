@@ -8,3 +8,4 @@ export 'chat_service.dart';
 export 'fee_service.dart';
 export 'rider_service.dart';
 export 'geocoding_service.dart';
+export 'fare_settings_service.dart';

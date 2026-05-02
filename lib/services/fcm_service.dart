@@ -82,19 +82,41 @@ class FcmService {
       onDidReceiveNotificationResponse: _onNotificationTap,
     );
 
-    // Create notification channel for Android
-    const androidChannel = AndroidNotificationChannel(
-      'hatid_sundo_channel',
-      'Hatid Sundo',
-      description: 'Ride notifications',
-      importance: Importance.high,
-    );
-
-    await _localNotifications
+    // Create notification channels for Android
+    final androidPlugin = _localNotifications
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(androidChannel);
+        >();
+
+    // Main channel
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'hatid_sundo_channel',
+        'Hatid Sundo',
+        description: 'Ride notifications',
+        importance: Importance.high,
+      ),
+    );
+
+    // Chat channel
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'hatid_sundo_chat',
+        'Chat Messages',
+        description: 'New message notifications',
+        importance: Importance.high,
+      ),
+    );
+
+    // Ride request channel
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'hatid_sundo_rides',
+        'Ride Requests',
+        description: 'New ride request notifications',
+        importance: Importance.max,
+      ),
+    );
   }
 
   /// Handle FCM token refresh
@@ -108,34 +130,67 @@ class FcmService {
     final userId = _supabaseService.currentUserId;
     if (userId == null || _fcmToken == null) return;
 
-    await _supabaseService.from('user_fcm_tokens').upsert({
-      'user_id': userId,
-      'token': _fcmToken,
-      'platform': defaultTargetPlatform.name,
-      'updated_at': DateTime.now().toIso8601String(),
-    });
+    await _supabaseService.from('user_fcm_tokens').upsert(
+      {
+        'user_id': userId,
+        'token': _fcmToken,
+        'platform': defaultTargetPlatform.name,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      onConflict: 'user_id, token',
+    );
   }
 
-  /// Handle foreground message
+  /// Handle foreground message with type-specific behavior
   void _handleForegroundMessage(RemoteMessage message) {
     debugPrint('FCM Foreground: ${message.notification?.title}');
+    final type = message.data['type'] ?? 'general';
+
+    // Determine notification channel and behavior based on type
+    String channelId = 'hatid_sundo_channel';
+    Importance importance = Importance.high;
+
+    switch (type) {
+      case 'chat_message':
+        channelId = 'hatid_sundo_chat';
+        break;
+      case 'new_ride_request':
+      case 'ride_request':
+        channelId = 'hatid_sundo_rides';
+        importance = Importance.max;
+        break;
+      case 'trip_cancelled':
+        importance = Importance.max;
+        break;
+      case 'rider_status':
+      case 'driver_assigned':
+      case 'driver_arriving':
+      case 'trip_started':
+      case 'trip_completed':
+        break;
+    }
 
     // Show local notification
     _showLocalNotification(
       title: message.notification?.title ?? 'Hatid Sundo',
       body: message.notification?.body ?? '',
       payload: jsonEncode(message.data),
+      channelId: channelId,
+      importance: importance,
     );
 
     // Store notification in database
     _storeNotification(message);
   }
 
-  /// Handle message opened app
+  /// Handle message opened app — navigate to relevant screen
   void _handleMessageOpenedApp(RemoteMessage message) {
     debugPrint('FCM Opened: ${message.data}');
-    // Navigation based on notification type would happen here
-    // This would typically use a navigation service
+    // Navigation is handled by the GoRouter redirect logic
+    // which checks for active trips. The notification payload
+    // contains trip_id which can be used for deep linking.
+    // For now, the app will naturally redirect to the active trip
+    // screen when it detects an active trip on startup.
   }
 
   /// Handle notification tap
@@ -143,22 +198,29 @@ class FcmService {
     if (response.payload != null) {
       final data = jsonDecode(response.payload!);
       debugPrint('Notification tapped: $data');
-      // Navigate based on payload
+      // The app's router redirect will handle navigation
+      // to the correct screen based on active trip state
     }
   }
 
-  /// Show local notification
+  /// Show local notification with configurable channel
   Future<void> _showLocalNotification({
     required String title,
     required String body,
     String? payload,
+    String channelId = 'hatid_sundo_channel',
+    Importance importance = Importance.high,
   }) async {
-    const androidDetails = AndroidNotificationDetails(
-      'hatid_sundo_channel',
-      'Hatid Sundo',
+    final androidDetails = AndroidNotificationDetails(
+      channelId,
+      channelId == 'hatid_sundo_chat'
+          ? 'Chat Messages'
+          : channelId == 'hatid_sundo_rides'
+          ? 'Ride Requests'
+          : 'Hatid Sundo',
       channelDescription: 'Ride notifications',
-      importance: Importance.high,
-      priority: Priority.high,
+      importance: importance,
+      priority: importance == Importance.max ? Priority.max : Priority.high,
       icon: '@mipmap/ic_launcher',
     );
 
@@ -168,7 +230,7 @@ class FcmService {
       presentSound: true,
     );
 
-    const details = NotificationDetails(
+    final details = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );

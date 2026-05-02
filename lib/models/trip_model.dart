@@ -6,6 +6,8 @@ part 'trip_model.g.dart';
 enum TripStatus {
   @JsonValue('pending')
   pending,
+  @JsonValue('offered')
+  offered,
   @JsonValue('accepted')
   accepted,
   @JsonValue('driver_arriving')
@@ -87,6 +89,8 @@ class TripModel {
   final String? ratingComment;
   @JsonKey(name: 'created_at')
   final DateTime createdAt;
+  @JsonKey(name: 'offered_at')
+  final DateTime? offeredAt;
   @JsonKey(name: 'accepted_at')
   final DateTime? acceptedAt;
   @JsonKey(name: 'started_at')
@@ -117,6 +121,7 @@ class TripModel {
     this.rating,
     this.ratingComment,
     required this.createdAt,
+    this.offeredAt,
     this.acceptedAt,
     this.startedAt,
     this.completedAt,
@@ -150,6 +155,7 @@ class TripModel {
     int? rating,
     String? ratingComment,
     DateTime? createdAt,
+    DateTime? offeredAt,
     DateTime? acceptedAt,
     DateTime? startedAt,
     DateTime? completedAt,
@@ -177,6 +183,7 @@ class TripModel {
       rating: rating ?? this.rating,
       ratingComment: ratingComment ?? this.ratingComment,
       createdAt: createdAt ?? this.createdAt,
+      offeredAt: offeredAt ?? this.offeredAt,
       acceptedAt: acceptedAt ?? this.acceptedAt,
       startedAt: startedAt ?? this.startedAt,
       completedAt: completedAt ?? this.completedAt,
@@ -190,6 +197,7 @@ class TripModel {
       LocationPoint(lat: destLat, lng: destLng, address: destAddress);
 
   bool get isPending => status == TripStatus.pending;
+  bool get isOffered => status == TripStatus.offered;
   bool get isAccepted => status == TripStatus.accepted;
   bool get isDriverArriving => status == TripStatus.driverArriving;
   bool get isInProgress => status == TripStatus.inProgress;

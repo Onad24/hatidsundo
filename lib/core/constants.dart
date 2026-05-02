@@ -30,6 +30,7 @@ class AppConstants {
 
   // Trip Status
   static const String tripStatusPending = 'pending';
+  static const String tripStatusOffered = 'offered';
   static const String tripStatusAccepted = 'accepted';
   static const String tripStatusDriverArriving = 'driver_arriving';
   static const String tripStatusInProgress = 'in_progress';
@@ -53,6 +54,7 @@ class AppConstants {
   static const double gpsMinDistanceMeters = 10.0;
 
   // Fee Settings
+  // @deprecated — use fare_settings table via fareSettingsProvider instead
   static const double platformFeePercent = 0.10; // 10%
 
   // Map Settings
@@ -77,6 +79,7 @@ class AppConstants {
   static const String notifAdminMessage = 'admin_message';
 
   // Night Rate Settings
+  // @deprecated — use fare_settings table via fareSettingsProvider instead
   static const double nightRateMultiplier = 1.2;
   static const int nightRateStartHour = 21; // 9 PM
   static const int nightRateEndHour = 5; // 5 AM

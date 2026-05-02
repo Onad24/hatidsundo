@@ -142,12 +142,15 @@ class RiderService {
   /// Uses two separate queries to avoid RLS issues with nested joins.
   Future<Map<String, dynamic>?> getDriverInfo(String riderId) async {
     try {
+      debugPrint('DEBUG getDriverInfo: fetching for riderId=$riderId');
+
       // 1. Get user row (name, avatar)
       final userRow = await _supabaseService.client
           .from(AppConstants.usersTable)
           .select('name, avatar_url')
           .eq('id', riderId)
           .maybeSingle();
+      debugPrint('DEBUG getDriverInfo: userRow=$userRow');
 
       // 2. Get rider profile row (vehicle, rating, plate)
       final profileRow = await _supabaseService.client
@@ -157,8 +160,12 @@ class RiderService {
           )
           .eq('user_id', riderId)
           .maybeSingle();
+      debugPrint('DEBUG getDriverInfo: profileRow=$profileRow');
 
-      if (userRow == null && profileRow == null) return null;
+      if (userRow == null && profileRow == null) {
+        debugPrint('DEBUG getDriverInfo: BOTH null — likely RLS blocking');
+        return null;
+      }
 
       final vehicleDesc = profileRow != null
           ? '${profileRow['vehicle_color'] ?? ''} '

@@ -25,11 +25,14 @@ class ActiveTripScreen extends ConsumerStatefulWidget {
 
 class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
   StreamSubscription<DriverLocationModel>? _driverSubscription;
+  StreamSubscription<Map<String, dynamic>>? _routeSubscription;
   DriverLocationModel? _driverLocation;
   List<LatLng>? _dynamicRoutePoints;
   String? _lastRoutePolyline;
   Timer? _routeUpdateDebouncer;
+  Timer? _periodicRouteRefresh;
   bool _isRouteUpdating = false;
+  DateTime? _lastSubscriptionUpdate;
 
   // Cache driver info future so it doesn't re-fire on every rebuild
   Future<Map<String, dynamic>?>? _driverInfoFuture;
@@ -41,7 +44,34 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
     // Defer processing until after build to access ref
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeTracking();
+      final trip = ref.read(tripStateProvider).activeTrip;
+      if (trip != null &&
+          (trip.status == TripStatus.accepted ||
+           trip.status == TripStatus.driverArriving ||
+           trip.status == TripStatus.inProgress)) {
+        _startClientTracking(trip.id, trip.clientId);
+      }
+      _initializeTracking();
     });
+  }
+
+  void _startClientTracking(String tripId, String clientId) {
+    try {
+      ref.read(locationServiceProvider).startClientTracking(
+        clientId: clientId,
+        tripId: tripId,
+      );
+    } catch (e) {
+      debugPrint('Failed to start client tracking: $e');
+    }
+  }
+
+  void _stopClientTracking() {
+    try {
+      ref.read(locationServiceProvider).stopClientTracking();
+    } catch (e) {
+      debugPrint('Failed to stop client tracking: $e');
+    }
   }
 
   @override
@@ -56,13 +86,20 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
   @override
   void dispose() {
     _cleanupTracking();
+    _routeSubscription?.cancel();
     _routeUpdateDebouncer?.cancel();
+    _periodicRouteRefresh?.cancel();
+    _stopClientTracking();
     super.dispose();
   }
 
   void _cleanupTracking() {
     _driverSubscription?.cancel();
     _driverSubscription = null;
+    _routeSubscription?.cancel();
+    _routeSubscription = null;
+    _periodicRouteRefresh?.cancel();
+    _periodicRouteRefresh = null;
   }
 
   void _initializeTracking() {
@@ -73,6 +110,15 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
       _subscribeToDriver(trip.riderId!);
       _fetchDriverInfo(trip.riderId!);
     }
+
+    // Subscribe to route broadcasts from rider
+    _subscribeToRouteUpdates();
+
+    // Periodic route refresh every 10 seconds as fallback
+    _periodicRouteRefresh = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => _refreshRouteFromDriver(),
+    );
   }
 
   void _fetchDriverInfo(String riderId) {
@@ -93,79 +139,100 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
             setState(() {
               _driverLocation = location;
             });
-            _updateDynamicRoute(location);
+            _debouncedRouteUpdate(location);
           }
         });
   }
 
-  Future<void> _updateDynamicRoute(DriverLocationModel driverLoc) async {
-    final trip = ref.read(tripStateProvider).activeTrip;
-    if (trip == null) return;
+  /// Subscribe to route broadcasts from the rider's navigation screen
+  void _subscribeToRouteUpdates() {
+    _routeSubscription?.cancel();
+    _routeSubscription = ref
+        .read(tripServiceProvider)
+        .subscribeRouteUpdates(widget.tripId)
+        .listen((payload) {
+          if (!mounted) return;
+          
+          final trip = ref.read(tripStateProvider).activeTrip;
+          if (trip == null) return;
+          
+          // Only use broadcast route when driver is heading to pickup.
+          // When in progress, client routing is local based on GPS.
+          if (trip.status == TripStatus.inProgress) return;
 
-    // Only update route if:
-    // 1. Not currently updating
-    // 2. We have a valid driver location
-    // 3. Debounce to avoid hammering OSRM
+          // 10-second throttle on subscription updates to avoid rapid jitter
+          if (_lastSubscriptionUpdate != null &&
+              DateTime.now().difference(_lastSubscriptionUpdate!) < const Duration(seconds: 10)) {
+            return;
+          }
+          _lastSubscriptionUpdate = DateTime.now();
+
+          final polyline = payload['polyline'] as String?;
+          if (polyline != null && polyline != _lastRoutePolyline) {
+            setState(() {
+              _dynamicRoutePoints = polylineToLatLng(polyline);
+              _lastRoutePolyline = polyline;
+            });
+          }
+        });
+  }
+
+  /// Debounced route update when driver location changes
+  void _debouncedRouteUpdate(DriverLocationModel driverLoc) {
     if (_isRouteUpdating) return;
 
-    if (_routeUpdateDebouncer?.isActive ?? false) return;
-
-    _routeUpdateDebouncer = Timer(const Duration(seconds: 2), () async {
-      if (!mounted) return;
-
-      setState(() {
-        _isRouteUpdating = true;
-      });
-
-      try {
-        final osrmService = ref.read(osrmServiceProvider);
-
-        double startLat, startLng, endLat, endLng;
-
-        // Logic for route segments:
-        // 1. Driver Arriving / Accepted: Driver -> Pickup
-        // 2. In Progress: Driver -> Destination (or Pickup -> Destination if driver at pickup)
-
-        if (trip.status == TripStatus.accepted ||
-            trip.status == TripStatus.driverArriving) {
-          startLat = driverLoc.lat;
-          startLng = driverLoc.lng;
-          endLat = trip.pickupLat;
-          endLng = trip.pickupLng;
-        } else if (trip.status == TripStatus.inProgress) {
-          startLat = driverLoc.lat;
-          startLng = driverLoc.lng;
-          endLat = trip.destLat;
-          endLng = trip.destLng;
-        } else {
-          // Fallback to static route if completed/cancelled or pending
-          _isRouteUpdating = false;
-          return;
-        }
-
-        final route = await osrmService.getRoute(
-          startLat: startLat,
-          startLng: startLng,
-          endLat: endLat,
-          endLng: endLng,
-        );
-
-        if (mounted && route.polyline != _lastRoutePolyline) {
-          setState(() {
-            _dynamicRoutePoints = polylineToLatLng(route.polyline);
-            _lastRoutePolyline = route.polyline;
-          });
-        }
-      } catch (e) {
-        debugPrint('Error updating route: $e');
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isRouteUpdating = false;
-          });
-        }
-      }
+    // Cancel previous debouncer before creating a new one
+    _routeUpdateDebouncer?.cancel();
+    _routeUpdateDebouncer = Timer(const Duration(seconds: 3), () {
+      _fetchRouteFromOsrm(driverLoc);
     });
+  }
+
+  /// Periodic fallback: refresh route using latest driver location
+  void _refreshRouteFromDriver() {
+    if (_driverLocation == null || _isRouteUpdating) return;
+    _fetchRouteFromOsrm(_driverLocation!);
+  }
+
+  /// Fetch route from OSRM based on driver's current position
+  Future<void> _fetchRouteFromOsrm(DriverLocationModel driverLoc) async {
+    final trip = ref.read(tripStateProvider).activeTrip;
+    if (trip == null || !mounted) return;
+
+    // Only do local OSRM routing when the trip is actually in progress (picked up).
+    if (trip.status != TripStatus.inProgress) {
+      return;
+    }
+
+    setState(() {
+      _isRouteUpdating = true;
+    });
+
+    try {
+      final osrmService = ref.read(osrmServiceProvider);
+      
+      final route = await osrmService.getRoute(
+        startLat: driverLoc.lat,
+        startLng: driverLoc.lng,
+        endLat: trip.destLat,
+        endLng: trip.destLng,
+      );
+
+      if (mounted && route.polyline != _lastRoutePolyline) {
+        setState(() {
+          _dynamicRoutePoints = polylineToLatLng(route.polyline);
+          _lastRoutePolyline = route.polyline;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error updating route: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRouteUpdating = false;
+        });
+      }
+    }
   }
 
   @override
@@ -173,14 +240,30 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
     final tripState = ref.watch(tripStateProvider);
     final trip = tripState.activeTrip;
 
-    // Monitor trip status changes to re-init tracking if rider is assigned
+    // Monitor trip status changes
     ref.listen(tripStateProvider, (previous, next) {
       final prevTrip = previous?.activeTrip;
       final nextTrip = next.activeTrip;
 
-      if (nextTrip?.riderId != null && prevTrip?.riderId != nextTrip?.riderId) {
-        _subscribeToDriver(nextTrip!.riderId!);
+      if (nextTrip == null) return;
+
+      // Handle driver assignment
+      if (nextTrip.riderId != null && prevTrip?.riderId != nextTrip.riderId) {
+        _subscribeToDriver(nextTrip.riderId!);
         _fetchDriverInfo(nextTrip.riderId!);
+      }
+
+      // Handle client tracking based on status transition
+      if (nextTrip.status != prevTrip?.status) {
+        if (nextTrip.status == TripStatus.accepted ||
+            nextTrip.status == TripStatus.driverArriving ||
+            nextTrip.status == TripStatus.inProgress) {
+          _startClientTracking(nextTrip.id, nextTrip.clientId);
+        } else if (nextTrip.status == TripStatus.completed) {
+          _stopClientTracking();
+        } else if (nextTrip.status == TripStatus.cancelled) {
+          _stopClientTracking();
+        }
       }
     });
 
@@ -188,21 +271,19 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // Use dynamic route if available, otherwise fallback to trip static route
-    // But for 'accepted'/'driverArriving', static route (Pickup->Dest) is wrong for visual tracking.
-    // So we prefer dynamic.
+    // Determine which route to display
+    // Prefer dynamic route (from broadcast or OSRM re-fetch) over static
+    List<LatLng>? displayRoute;
 
-    // Initial static route (Pickup -> Destination)
-    List<LatLng>? displayRoute = trip.routePolyline != null
-        ? polylineToLatLng(trip.routePolyline!)
-        : null;
-
-    // Override with dynamic route if we have one and we are in a tracking state
     if (_dynamicRoutePoints != null &&
         (trip.status == TripStatus.accepted ||
             trip.status == TripStatus.driverArriving ||
             trip.status == TripStatus.inProgress)) {
+      // Use live route from rider broadcast or our own OSRM fetch
       displayRoute = _dynamicRoutePoints;
+    } else if (trip.routePolyline != null) {
+      // Fallback to static route (pickup -> destination)
+      displayRoute = polylineToLatLng(trip.routePolyline!);
     }
 
     // Drivers list for map
@@ -322,6 +403,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
 
     switch (trip.status) {
       case TripStatus.pending:
+      case TripStatus.offered:
         statusText = 'Finding your driver';
         statusSubtext = 'Please wait while we find a driver near you';
         statusColor = AppTheme.warningColor;

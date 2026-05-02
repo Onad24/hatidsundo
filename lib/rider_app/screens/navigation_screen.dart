@@ -121,6 +121,13 @@ class _NavigationScreenState extends ConsumerState<NavigationScreen> {
           _initialRouteLoaded = true;
           _isRouteUpdating = false;
         });
+
+        // Broadcast route to client for live rerouting
+        _broadcastRouteToClient(
+          route.polyline,
+          route.durationMinutes.toDouble(),
+          route.distanceKm,
+        );
       }
     } catch (e) {
       debugPrint('Error fetching rider route: $e');
@@ -138,6 +145,21 @@ class _NavigationScreenState extends ConsumerState<NavigationScreen> {
         });
       }
     }
+  }
+
+  /// Broadcast the current route polyline to the client
+  void _broadcastRouteToClient(
+    String polyline,
+    double etaMinutes,
+    double distanceKm,
+  ) {
+    final tripService = ref.read(tripServiceProvider);
+    tripService.broadcastRouteUpdate(
+      tripId: widget.tripId,
+      polyline: polyline,
+      etaMinutes: etaMinutes,
+      distanceKm: distanceKm,
+    );
   }
 
   @override

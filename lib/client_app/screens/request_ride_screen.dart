@@ -7,6 +7,7 @@ import 'package:maplibre_gl/maplibre_gl.dart';
 import '../../core/theme.dart';
 import '../../core/constants.dart';
 import '../../services/services.dart';
+import '../../services/fare_settings_service.dart';
 import '../../state/state.dart';
 import '../../widgets/map_widget.dart';
 
@@ -494,18 +495,17 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
   }
 
   Widget _buildRouteInfoPanel() {
-    // Fare = ₱25 + floor(driver→pickup km)×₱8 + floor(pickup→dest km)×₱8
-    // Night rate (9PM–5AM): distance component × 1.2
-    const baseFare = 25.0;
-    const perKmRate = 8.0;
+    // Use dynamic fare settings from database
+    final fareSettingsAsync = ref.watch(fareSettingsProvider);
+    final fareSettings = fareSettingsAsync.valueOrNull ?? const FareSettings();
+
     final destKm = _routeInfo!.distanceKm;
     final driverKm = _nearestDriverDistanceKm ?? 0.0;
-    final isNight = AppConstants.isNightTime(DateTime.now());
-    final nightMultiplier = isNight ? AppConstants.nightRateMultiplier : 1.0;
-    final estimatedFare =
-        baseFare +
-        (driverKm.floorToDouble() * perKmRate) +
-        (destKm.floorToDouble() * perKmRate * nightMultiplier);
+    final estimatedFare = fareSettings.calculateFare(
+      destKm: destKm,
+      driverPickupKm: driverKm,
+    );
+    final isNight = fareSettings.isNightTime(DateTime.now());
     final bool noDriversNearby = _nearestDriverDistanceKm == null;
 
     return Container(

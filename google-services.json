@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "311057596992",
+    "project_id": "hatid-sundo-94658",
+    "storage_bucket": "hatid-sundo-94658.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:311057596992:android:9480f0053907721ec015a5",
+        "android_client_info": {
+          "package_name": "com.example.hatidsundo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6VuiSlZs6ybMPPDy9NznCRlMeRT9WS9k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

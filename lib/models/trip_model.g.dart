@@ -43,6 +43,9 @@ TripModel _$TripModelFromJson(Map<String, dynamic> json) => TripModel(
   rating: (json['rating'] as num?)?.toInt(),
   ratingComment: json['rating_comment'] as String?,
   createdAt: DateTime.parse(json['created_at'] as String),
+  offeredAt: json['offered_at'] == null
+      ? null
+      : DateTime.parse(json['offered_at'] as String),
   acceptedAt: json['accepted_at'] == null
       ? null
       : DateTime.parse(json['accepted_at'] as String),
@@ -77,6 +80,7 @@ Map<String, dynamic> _$TripModelToJson(TripModel instance) => <String, dynamic>{
   'rating': instance.rating,
   'rating_comment': instance.ratingComment,
   'created_at': instance.createdAt.toIso8601String(),
+  'offered_at': instance.offeredAt?.toIso8601String(),
   'accepted_at': instance.acceptedAt?.toIso8601String(),
   'started_at': instance.startedAt?.toIso8601String(),
   'completed_at': instance.completedAt?.toIso8601String(),
@@ -84,6 +88,7 @@ Map<String, dynamic> _$TripModelToJson(TripModel instance) => <String, dynamic>{
 
 const _$TripStatusEnumMap = {
   TripStatus.pending: 'pending',
+  TripStatus.offered: 'offered',
   TripStatus.accepted: 'accepted',
   TripStatus.driverArriving: 'driver_arriving',
   TripStatus.inProgress: 'in_progress',

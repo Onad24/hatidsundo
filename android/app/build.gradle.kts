@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     kotlin("android")
+    id("com.google.gms.google-services")
     id("dev.flutter.flutter-gradle-plugin") // Flutter plugin must be last
 }
 

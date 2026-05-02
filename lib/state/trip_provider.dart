@@ -149,58 +149,23 @@ class TripNotifier extends StateNotifier<TripState> {
     }
   }
 
-  /// Accept a ride (rider)
+  /// Accept a ride (rider) — atomic, only one rider can accept
   Future<bool> acceptRide(String tripId) async {
-    print('DEBUG acceptRide: tripId=$tripId, userId=$_userId');
-    if (_userId == null) {
-      print('DEBUG acceptRide: userId is null, returning false');
-      return false;
-    }
+    if (_userId == null) return false;
 
     state = state.copyWith(isLoading: true);
     try {
-      // DEBUG: Check rider status
-      try {
-        final profile = await _tripService.supabaseService.client
-            .from('rider_profiles')
-            .select()
-            .eq('user_id', _userId)
-            .maybeSingle();
-        print('DEBUG acceptRide check: Rider Profile = $profile');
-        if (profile != null && profile['status'] != 'approved') {
-          print(
-            'DEBUG acceptRide: RIDER NOT APPROVED (status=${profile['status']}). RLS will block update.',
-          );
-        }
-      } catch (e) {
-        print('DEBUG acceptRide check: Could not fetch profile: $e');
-      }
-
-      // DEBUG: Check trip status
-      try {
-        final tripCheck = await _tripService.supabaseService.client
-            .from('trips')
-            .select()
-            .eq('id', tripId)
-            .maybeSingle();
-        print('DEBUG acceptRide check: Trip = $tripCheck');
-      } catch (e) {
-        print('DEBUG acceptRide check: Could not fetch trip: $e');
-      }
-
-      print('DEBUG acceptRide: calling acceptTrip...');
       final trip = await _tripService.acceptTrip(tripId, _userId);
-
-      print(
-        'DEBUG acceptRide: success! trip.status=${trip.status}, trip.riderId=${trip.riderId}',
-      );
       state = state.copyWith(activeTrip: trip, isLoading: false);
       _subscribeToTripUpdates(trip.id);
       return true;
-    } catch (e, st) {
+    } catch (e) {
       print('DEBUG acceptRide ERROR: $e');
-      print('DEBUG acceptRide STACK: $st');
-      state = state.copyWith(error: e.toString(), isLoading: false);
+      // Provide a user-friendly error for race condition
+      final errorMsg = e.toString().contains('no longer available')
+          ? 'This ride was already accepted by another driver.'
+          : e.toString();
+      state = state.copyWith(error: errorMsg, isLoading: false);
       return false;
     }
   }
@@ -247,13 +212,31 @@ class TripNotifier extends StateNotifier<TripState> {
     if (state.activeTrip == null || _userId == null) return;
 
     try {
-      final trip = await _tripService.cancelTrip(
-        state.activeTrip!.id,
+      final trip = state.activeTrip!;
+      final updatedTrip = await _tripService.cancelTrip(
+        trip.id,
         cancelledBy: _userId,
         reason: reason,
       );
-      state = state.copyWith(activeTrip: trip);
+      state = state.copyWith(activeTrip: updatedTrip);
       _tripSubscription?.cancel();
+
+      // Send FCM notification to the other party
+      final otherUserId = _isRider ? trip.clientId : trip.riderId;
+      if (otherUserId != null) {
+        _tripService.sendPushNotification(
+          userId: otherUserId,
+          title: 'Trip Cancelled',
+          body: _isRider
+              ? 'Your driver has cancelled the trip${reason != null ? ': $reason' : '.'}'
+              : 'The passenger has cancelled the trip${reason != null ? ': $reason' : '.'}',
+          data: {
+            'type': 'trip_cancelled',
+            'trip_id': trip.id,
+            'reason': reason ?? '',
+          },
+        );
+      }
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }

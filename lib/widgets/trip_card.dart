@@ -230,6 +230,8 @@ class TripCard extends StatelessWidget {
         return 'In Progress';
       case TripStatus.pending:
         return 'Finding Driver';
+      case TripStatus.offered:
+        return 'Finding Driver';
       case TripStatus.accepted:
         return 'Driver Assigned';
       case TripStatus.driverArriving:

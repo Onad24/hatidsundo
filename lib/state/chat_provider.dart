@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/message_model.dart';
 import '../services/chat_service.dart';
+import '../services/trip_service.dart';
 import 'auth_provider.dart';
+import 'trip_provider.dart';
 
 /// Chat state
 class ChatState {
@@ -38,14 +40,22 @@ class ChatState {
 /// Chat notifier for a specific trip
 class ChatNotifier extends StateNotifier<ChatState> {
   final ChatService _chatService;
+  final TripService _tripService;
   final String _tripId;
   final String? _userId;
+  final String? _recipientId;
   final SenderRole _senderRole;
   StreamSubscription? _messageSubscription;
   Timer? _pollTimer;
 
-  ChatNotifier(this._chatService, this._tripId, this._userId, this._senderRole)
-    : super(const ChatState()) {
+  ChatNotifier(
+    this._chatService,
+    this._tripService,
+    this._tripId,
+    this._userId,
+    this._recipientId,
+    this._senderRole,
+  ) : super(const ChatState()) {
     _loadMessages();
     _subscribeToMessages();
     _startPolling();
@@ -132,6 +142,21 @@ class ChatNotifier extends StateNotifier<ChatState> {
       } else {
         state = state.copyWith(isSending: false);
       }
+
+      // Send FCM notification to the other party
+      if (_recipientId != null) {
+        _tripService.sendPushNotification(
+          userId: _recipientId,
+          title: 'New Message',
+          body: content.trim().length > 50
+              ? '${content.trim().substring(0, 50)}...'
+              : content.trim(),
+          data: {
+            'type': 'chat_message',
+            'trip_id': _tripId,
+          },
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       state = state.copyWith(error: e.toString(), isSending: false);
@@ -180,6 +205,7 @@ final chatNotifierProvider =
       tripId,
     ) {
       final chatService = ref.watch(chatServiceProvider);
+      final tripService = ref.watch(tripServiceProvider);
       final user = ref.watch(currentUserProvider);
 
       final senderRole = user?.isRider == true
@@ -188,7 +214,25 @@ final chatNotifierProvider =
           ? SenderRole.admin
           : SenderRole.client;
 
-      return ChatNotifier(chatService, tripId, user?.id, senderRole);
+      // Determine the recipient from the active trip
+      String? recipientId;
+      try {
+        final tripState = ref.watch(tripStateProvider);
+        final trip = tripState.activeTrip;
+        if (trip != null && user != null) {
+          // If I'm the rider, recipient is the client, and vice versa
+          recipientId = user.isRider ? trip.clientId : trip.riderId;
+        }
+      } catch (_) {}
+
+      return ChatNotifier(
+        chatService,
+        tripService,
+        tripId,
+        user?.id,
+        recipientId,
+        senderRole,
+      );
     });
 
 /// Unread count provider

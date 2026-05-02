@@ -95,6 +95,13 @@ class AdminSidebar extends ConsumerWidget {
                 ),
                 _buildMenuItem(
                   context: context,
+                  icon: Icons.calculate_rounded,
+                  label: 'Fare Settings',
+                  isSelected: activeItem == 'Fare Settings',
+                  route: Routes.adminFareSettings,
+                ),
+                _buildMenuItem(
+                  context: context,
                   icon: Icons.bar_chart_rounded,
                   label: 'Statistics',
                   isSelected: activeItem == 'Statistics',

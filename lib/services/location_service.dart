@@ -13,10 +13,18 @@ import 'supabase_service.dart';
 class LocationService {
   final SupabaseService _supabaseService;
 
-  StreamSubscription<Position>? _positionSubscription;
-  final Queue<LocationUpdate> _locationBuffer = Queue();
-  Timer? _batchTimer;
+  // Common state
   bool _isTracking = false;
+
+  // Driver tracking state
+  StreamSubscription<Position>? _driverPositionSubscription;
+  Timer? _driverBatchTimer;
+  final Queue<LocationUpdate> _driverLocationBuffer = Queue<LocationUpdate>();
+  
+  // Client tracking state
+  StreamSubscription<Position>? _clientPositionSubscription;
+  Timer? _clientBatchTimer;
+  final Queue<LocationUpdate> _clientLocationBuffer = Queue<LocationUpdate>();
 
   LocationService(this._supabaseService);
 
@@ -62,6 +70,110 @@ class LocationService {
     }
   }
 
+  // =========================================================================
+  // Client Tracking Methods
+  // =========================================================================
+
+  /// Start tracking for a client during an active trip
+  Future<void> startClientTracking({
+    required String clientId,
+    required String tripId,
+  }) async {
+    if (_isTracking) return;
+
+    final hasPermission = await checkPermissions();
+    if (!hasPermission) {
+      throw Exception('Location permission not granted');
+    }
+
+    _isTracking = true;
+
+    // Start position stream for client (1 minute intervals)
+    _clientPositionSubscription =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 10, // Only if moved 10 meters
+          ),
+        ).listen((position) {
+          _onClientPositionUpdate(position);
+        });
+
+    // We can use a 1-minute batch timer to flush
+    _clientBatchTimer = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => _flushClientLocationBuffer(clientId, tripId),
+    );
+  }
+
+  /// Handle client position update
+  void _onClientPositionUpdate(Position position) {
+    _clientLocationBuffer.add(
+      LocationUpdate(
+        lat: position.latitude,
+        lng: position.longitude,
+        timestamp: DateTime.now(),
+      ),
+    );
+
+    while (_clientLocationBuffer.length > 10) {
+      _clientLocationBuffer.removeFirst();
+    }
+  }
+
+  /// Flush client location buffer and send to server
+  Future<void> _flushClientLocationBuffer(String clientId, String tripId) async {
+    if (_clientLocationBuffer.isEmpty) return;
+
+    final updates = _clientLocationBuffer.toList();
+    _clientLocationBuffer.clear();
+
+    final latest = updates.last;
+
+    try {
+      final payload = {
+        'client_id': clientId,
+        'trip_id': tripId,
+        'lat': latest.lat,
+        'lng': latest.lng,
+        'updated_at': latest.timestamp.toIso8601String(),
+      };
+
+      print(
+        'DEBUG: Sending client location update for trip $tripId: Lat=${latest.lat}, Lng=${latest.lng}',
+      );
+
+      await _supabaseService
+          .from('client_locations')
+          .insert(payload); // We insert a new record for tracking history
+
+    } catch (e) {
+      print('DEBUG: Client location update failed: $e');
+      debugPrint('Error sending client location update: $e');
+      
+      // Add back to buffer if failed to retry later
+      if (_clientLocationBuffer.isEmpty) {
+        _clientLocationBuffer.add(latest);
+      }
+    }
+  }
+
+  /// Stop client tracking explicitly
+  Future<void> stopClientTracking() async {
+    await _clientPositionSubscription?.cancel();
+    _clientBatchTimer?.cancel();
+    _clientLocationBuffer.clear();
+    _clientPositionSubscription = null;
+    _clientBatchTimer = null;
+    
+    // If driver tracking is also not active, we can mark isTracking false
+    if (_driverPositionSubscription == null) {
+      _isTracking = false;
+    }
+  }
+
+  // =========================================================================
+
   /// Start tracking location with batching for driver mode
   Future<void> startTracking({
     required String driverId,
@@ -79,27 +191,26 @@ class LocationService {
     _isTracking = true;
 
     // Start position stream
-    _positionSubscription =
+    _driverPositionSubscription =
         Geolocator.getPositionStream(
           locationSettings: LocationSettings(
             accuracy: LocationAccuracy.high,
             distanceFilter: minDistanceMeters.toInt(),
-            timeLimit: Duration(milliseconds: updateIntervalMs),
           ),
         ).listen((position) {
-          _onPositionUpdate(position);
+          _onDriverPositionUpdate(position);
         });
 
     // Start batch timer
-    _batchTimer = Timer.periodic(
+    _driverBatchTimer = Timer.periodic(
       Duration(milliseconds: batchingDurationMs),
-      (_) => _flushLocationBuffer(driverId),
+      (_) => _flushDriverLocationBuffer(driverId),
     );
   }
 
-  /// Handle position update
-  void _onPositionUpdate(Position position) {
-    _locationBuffer.add(
+  /// Handle driver position update
+  void _onDriverPositionUpdate(Position position) {
+    _driverLocationBuffer.add(
       LocationUpdate(
         lat: position.latitude,
         lng: position.longitude,
@@ -110,17 +221,17 @@ class LocationService {
     );
 
     // Limit buffer size
-    while (_locationBuffer.length > 100) {
-      _locationBuffer.removeFirst();
+    while (_driverLocationBuffer.length > 100) {
+      _driverLocationBuffer.removeFirst();
     }
   }
 
-  /// Flush location buffer and send to server
-  Future<void> _flushLocationBuffer(String driverId) async {
-    if (_locationBuffer.isEmpty) return;
+  /// Flush driver location buffer and send to server
+  Future<void> _flushDriverLocationBuffer(String driverId) async {
+    if (_driverLocationBuffer.isEmpty) return;
 
-    final updates = _locationBuffer.toList();
-    _locationBuffer.clear();
+    final updates = _driverLocationBuffer.toList();
+    _driverLocationBuffer.clear();
 
     // Get latest update for database
     final latest = updates.last;
@@ -167,18 +278,21 @@ class LocationService {
       print('DEBUG: Location update failed: $e');
       debugPrint('Error sending location update: $e');
       // Re-add to buffer for retry
-      _locationBuffer.addAll(updates);
+      _driverLocationBuffer.addAll(updates);
     }
   }
 
   /// Stop tracking location
   Future<void> stopTracking() async {
     _isTracking = false;
-    _batchTimer?.cancel();
-    _batchTimer = null;
-    await _positionSubscription?.cancel();
-    _positionSubscription = null;
-    _locationBuffer.clear();
+    
+    await _driverPositionSubscription?.cancel();
+    _driverBatchTimer?.cancel();
+    _driverLocationBuffer.clear();
+    
+    _clientPositionSubscription?.cancel();
+    _clientBatchTimer?.cancel();
+    _clientLocationBuffer.clear();
   }
 
   /// Update driver online status

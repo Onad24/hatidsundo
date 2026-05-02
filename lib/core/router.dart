@@ -31,6 +31,7 @@ import '../rider_app/screens/history_screen.dart' as rider_history;
 import '../admin_web/screens/dashboard_screen.dart';
 import '../admin_web/screens/rider_approval_screen.dart';
 import '../admin_web/screens/fee_management_screen.dart';
+import '../admin_web/screens/fare_settings_screen.dart';
 import '../admin_web/screens/live_map_screen.dart';
 import '../admin_web/screens/messaging_screen.dart';
 import '../admin_web/screens/statistics_screen.dart';
@@ -84,6 +85,7 @@ class Routes {
   static const String adminTrips = '/admin/trips';
   static const String adminMessaging = '/admin/messaging';
   static const String adminFees = '/admin/fees';
+  static const String adminFareSettings = '/admin/fare-settings';
   static const String adminCompliance = '/admin/compliance';
   static const String adminStatistics = '/admin/statistics';
 }
@@ -261,6 +263,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.adminFees,
         builder: (context, state) => const FeeManagementScreen(),
+      ),
+      GoRoute(
+        path: Routes.adminFareSettings,
+        builder: (context, state) => const FareSettingsScreen(),
       ),
       GoRoute(
         path: Routes.adminCompliance,

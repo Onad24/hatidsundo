@@ -3,6 +3,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { sendFcmNotification } from '../_shared/fcm.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -96,16 +97,18 @@ serve(async (req) => {
       .eq('driver_id', trip.rider_id);
 
 
-    // Notify passenger
-    await supabaseClient.from('notifications').insert([
-      {
-        user_id: trip.client_id,
-        type: 'trip_started',
-        title: 'Trip Started',
-        body: 'Your trip has started! Enjoy the ride.',
-        payload: { trip_id },
-      },
-    ]);
+    // Notify passenger via shared fcm module
+    try {
+      await sendFcmNotification(
+        supabaseClient,
+        trip.client_id,
+        'Trip Started',
+        'Your trip has started! Enjoy the ride.',
+        { type: 'trip_started', trip_id: trip_id }
+      );
+    } catch (e) {
+      console.error('Failed to send trip started notification:', e);
+    }
 
     return new Response(
       JSON.stringify({
