@@ -6,6 +6,7 @@ import 'package:maplibre_gl/maplibre_gl.dart';
 import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../state/state.dart';
+import '../../services/update_service.dart';
 import '../../widgets/map_widget.dart';
 
 /// Rider home screen with online toggle and ride requests
@@ -23,6 +24,20 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
   void initState() {
     super.initState();
     _loadCurrentLocation();
+    
+    // Check for app updates
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForUpdate();
+    });
+  }
+
+  Future<void> _checkForUpdate() async {
+    try {
+      final updateService = ref.read(updateServiceProvider);
+      await updateService.checkForUpdate(context);
+    } catch (e) {
+      debugPrint('Rider update check failed: $e');
+    }
   }
 
   Future<void> _loadCurrentLocation() async {

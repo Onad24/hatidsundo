@@ -53,7 +53,6 @@ class _HatidSundoAppState extends ConsumerState<HatidSundoApp> {
     // Initialize FCM after the widget tree is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initFcm();
-      _checkForUpdates();
     });
   }
 
@@ -73,22 +72,6 @@ class _HatidSundoAppState extends ConsumerState<HatidSundoApp> {
       }
     } catch (e) {
       debugPrint('FCM init error (non-blocking): $e');
-    }
-  }
-
-  Future<void> _checkForUpdates() async {
-    // Small delay to let the app fully render first
-    await Future.delayed(const Duration(seconds: 3));
-    if (!mounted) return;
-
-    try {
-      final navContext = rootNavigatorKey.currentContext;
-      if (navContext != null && navContext.mounted) {
-        final updateService = ref.read(updateServiceProvider);
-        await updateService.checkForUpdate(navContext);
-      }
-    } catch (e) {
-      debugPrint('Update check failed (non-blocking): $e');
     }
   }
 

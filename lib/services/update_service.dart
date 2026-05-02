@@ -14,10 +14,15 @@ class UpdateService {
       'https://api.github.com/repos/$_githubOwner/$_githubRepo/releases/latest';
 
   final Dio _dio = Dio();
+  bool _hasChecked = false;
 
   /// Check for updates and show a dialog if a newer version is available.
   /// Returns true if an update is available.
   Future<bool> checkForUpdate(BuildContext context) async {
+    if (_hasChecked) return false;
+    _hasChecked = true;
+
+    debugPrint('DEBUG UPDATE: Starting HTTP request to $_apiUrl');
     try {
       final response = await _dio.get(
         _apiUrl,
@@ -28,6 +33,8 @@ class UpdateService {
         ),
       );
 
+      debugPrint('DEBUG UPDATE: API Response code: ${response.statusCode}');
+
       if (response.statusCode != 200 || response.data == null) return false;
 
       final data = response.data as Map<String, dynamic>;
@@ -37,6 +44,8 @@ class UpdateService {
       final htmlUrl = data['html_url'] as String? ?? '';
       final assets = data['assets'] as List<dynamic>? ?? [];
 
+      debugPrint('DEBUG UPDATE: Tag name: $tagName, Assets count: ${assets.length}');
+
       // Parse the version from the tag (strip leading 'v' if present)
       final latestVersion = tagName.startsWith('v')
           ? tagName.substring(1)
@@ -45,8 +54,10 @@ class UpdateService {
       if (latestVersion.isEmpty) return false;
 
       final currentVersion = AppConstants.appVersion;
+      debugPrint('DEBUG UPDATE: Comparing latest ($latestVersion) with current ($currentVersion)');
 
       if (_isNewerVersion(latestVersion, currentVersion)) {
+        debugPrint('DEBUG UPDATE: Update is available!');
         // Find APK download URL from assets
         String? apkUrl;
         for (final asset in assets) {
@@ -56,8 +67,10 @@ class UpdateService {
             break;
           }
         }
+        debugPrint('DEBUG UPDATE: Found APK URL: $apkUrl');
 
         if (context.mounted) {
+          debugPrint('DEBUG UPDATE: Showing update dialog');
           _showUpdateDialog(
             context,
             latestVersion: latestVersion,
@@ -66,13 +79,15 @@ class UpdateService {
             apkUrl: apkUrl,
             releasePageUrl: htmlUrl,
           );
+        } else {
+          debugPrint('DEBUG UPDATE: Context unmounted, cannot show dialog');
         }
         return true;
       }
 
       return false;
     } catch (e) {
-      debugPrint('Update check failed (non-blocking): $e');
+      debugPrint('DEBUG UPDATE: Update check failed with exception: $e');
       return false;
     }
   }

@@ -38,7 +38,9 @@ class _MarketingScreenState extends State<MarketingScreen> {
   bool _isDownloading = false;
 
   Future<void> _downloadApk() async {
+    if (_isDownloading) return;
     setState(() => _isDownloading = true);
+    
     try {
       final dio = Dio();
       final response = await dio.get(
