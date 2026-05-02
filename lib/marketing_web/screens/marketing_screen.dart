@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -34,17 +35,53 @@ class _MarketingScreenState extends State<MarketingScreen> {
     super.dispose();
   }
 
+  bool _isDownloading = false;
+
   Future<void> _downloadApk() async {
-    final Uri url = Uri.parse(
-      'https://github.com/Onad24/hatidsundo/releases/download/update/HatidSundo-release.apk',
-    );
-    if (!await launchUrl(url)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open download link')),
-        );
+    setState(() => _isDownloading = true);
+    try {
+      final dio = Dio();
+      final response = await dio.get(
+        'https://api.github.com/repos/Onad24/hatidsundo/releases/latest',
+        options: Options(headers: {'Accept': 'application/vnd.github.v3+json'}),
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final assets = response.data['assets'] as List<dynamic>? ?? [];
+        String? apkUrl;
+
+        for (final asset in assets) {
+          final name = (asset['name'] as String? ?? '').toLowerCase();
+          if (name.endsWith('.apk')) {
+            apkUrl = asset['browser_download_url'] as String?;
+            break;
+          }
+        }
+
+        if (apkUrl != null) {
+          if (!await launchUrl(
+            Uri.parse(apkUrl),
+            mode: LaunchMode.externalApplication,
+          )) {
+            if (mounted) _showError('Could not open download link');
+          }
+        } else {
+          if (mounted) _showError('No APK found in the latest release');
+        }
+      } else {
+        if (mounted) _showError('Could not fetch the latest release');
       }
+    } catch (e) {
+      if (mounted) _showError('Failed to check for updates. Please try again.');
+    } finally {
+      if (mounted) setState(() => _isDownloading = false);
     }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -222,9 +259,20 @@ class _MarketingScreenState extends State<MarketingScreen> {
                       : MainAxisAlignment.center,
                   children: [
                     ElevatedButton.icon(
-                      onPressed: _downloadApk,
-                      icon: const Icon(Icons.android),
-                      label: const Text('Download APK'),
+                      onPressed: _isDownloading ? null : _downloadApk,
+                      icon: _isDownloading
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.android),
+                      label: Text(
+                        _isDownloading ? 'Locating APK...' : 'Download APK',
+                      ),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 32,
@@ -412,18 +460,33 @@ class _MarketingScreenState extends State<MarketingScreen> {
           ),
           const SizedBox(height: 40),
           ElevatedButton.icon(
-            onPressed: _downloadApk,
-            icon: const Icon(Icons.android, size: 28),
-            label: const Column(
+            onPressed: _isDownloading ? null : _downloadApk,
+            icon: _isDownloading
+                ? const SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.android, size: 28),
+            label: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Download for',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                  _isDownloading ? 'Locating...' : 'Download for',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 Text(
-                  'Android',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  _isDownloading ? 'Latest APK' : 'Android',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
