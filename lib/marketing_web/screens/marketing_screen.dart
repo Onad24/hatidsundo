@@ -40,7 +40,7 @@ class _MarketingScreenState extends State<MarketingScreen> {
   Future<void> _downloadApk() async {
     if (_isDownloading) return;
     setState(() => _isDownloading = true);
-    
+
     try {
       final dio = Dio();
       final response = await dio.get(
@@ -156,7 +156,7 @@ class _MarketingScreenState extends State<MarketingScreen> {
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Image.asset('assets/icons/logo.png', width: 32, height: 32),
+          Image.asset("assets/icons/new logo 2.png", width: 32, height: 32),
           const SizedBox(width: 12),
           const Text(
             'Hatid Sundo',

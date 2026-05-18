@@ -117409,7 +117409,7 @@ return new A.pm(l,A.dO(n,B.tp,A.hQ(B.bJ,A.b([k,j,new A.Zo(i,B.ag,!1,o.d,n,n,n,!1
 asw(){var s,r=null,q=this.e,p=q?8:0
 q=q?B.tp.aU(0.95):B.u
 s=t.p
-return new A.P6(A.aW(A.b([A.Lq("assets/icons/logo.png",r,32,32),B.a7,B.ake],s),B.m,B.i,B.aJ,0,r),A.b([A.eK(B.ak0,new A.aZs(this),r),B.cl,new A.aX(B.uz,A.n5(B.ajx,this.gQC(),A.tR(r,r,B.x,r,r,r,r,r,r,B.h,r,r,r,r,r,r,r,r,r,r)),r)],s),p,q,!0,r)},
+return new A.P6(A.aW(A.b([A.Lq("assets/icons/new logo 2.png",r,32,32),B.a7,B.ake],s),B.m,B.i,B.aJ,0,r),A.b([A.eK(B.ak0,new A.aZs(this),r),B.cl,new A.aX(B.uz,A.n5(B.ajx,this.gQC(),A.tR(r,r,B.x,r,r,r,r,r,r,B.h,r,r,r,r,r,r,r,r,r,r)),r)],s),p,q,!0,r)},
 asK(){var s=null
 return A.am(s,A.aJ(A.b([B.aiZ,B.P,B.akJ,B.I_,A.LY(new A.aZt())],t.p),B.m,B.i,B.j),B.k,s,B.rH,s,s,s,s,s,B.nF,s,s,s)}}
 A.aZy.prototype={
