@@ -80,7 +80,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(20),
                     child: Image.asset(
-                      'assets/icons/new_logo.png',
+                      'assets/icons/logo.png',
                       fit: BoxFit.cover,
                     ),
                   ),

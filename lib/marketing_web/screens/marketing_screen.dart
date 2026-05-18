@@ -156,7 +156,7 @@ class _MarketingScreenState extends State<MarketingScreen> {
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Image.asset('assets/icons/new_logo.png', width: 32, height: 32),
+          Image.asset('assets/icons/logo.png', width: 32, height: 32),
           const SizedBox(width: 12),
           const Text(
             'Hatid Sundo',
@@ -304,7 +304,7 @@ class _MarketingScreenState extends State<MarketingScreen> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(24),
                     child: Image.asset(
-                      'assets/icons/new_logo.png', // Fallback to logo if hero missing
+                      'assets/icons/logo.png', // Fallback to logo if hero missing
                       fit: BoxFit.cover,
                     ),
                   ),
@@ -444,7 +444,7 @@ class _MarketingScreenState extends State<MarketingScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 100),
       child: Column(
         children: [
-          Image.asset('assets/icons/new_logo.png', width: 100, height: 100),
+          Image.asset('assets/icons/logo.png', width: 100, height: 100),
           const SizedBox(height: 24),
           const Text(
             'Ready to Ride?',

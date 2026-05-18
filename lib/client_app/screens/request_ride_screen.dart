@@ -73,36 +73,38 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
       final osrmService = ref.read(osrmServiceProvider);
       final supabase = ref.read(supabaseServiceProvider);
 
-      // Calculate the route
-      final route = await osrmService.getRoute(
+      // Run route calculation and nearby drivers lookup IN PARALLEL
+      // since they are independent — this halves the wait time.
+      final routeFuture = osrmService.getRoute(
         startLat: _pickupLocation!.latitude,
         startLng: _pickupLocation!.longitude,
         endLat: _destLocation!.latitude,
         endLng: _destLocation!.longitude,
       );
 
-      // Find nearest available active driver to pickup location
-      double? nearestDriverKm;
-      try {
-        final driversRaw =
-            await supabase.client.rpc(
-                  'get_nearby_drivers',
-                  params: {
-                    'p_lat': _pickupLocation!.latitude,
-                    'p_lng': _pickupLocation!.longitude,
-                    'p_radius_km': 20.0, // wide radius for fare estimate
-                  },
-                )
-                as List?;
-
-        if (driversRaw != null && driversRaw.isNotEmpty) {
-          // Drivers are sorted nearest-first by the RPC
-          nearestDriverKm = (driversRaw.first['distance_km'] as num?)
-              ?.toDouble();
-        }
-      } catch (e) {
+      final driversFuture = supabase.client.rpc(
+        'get_nearby_drivers',
+        params: {
+          'p_lat': _pickupLocation!.latitude,
+          'p_lng': _pickupLocation!.longitude,
+          'p_radius_km': 20.0, // wide radius for fare estimate
+        },
+      ).then<List?>((result) => result as List?).catchError((e) {
         // Non-blocking: fare estimate will omit driver pickup distance
         debugPrint('Could not fetch nearby drivers for fare estimate: $e');
+        return null;
+      });
+
+      final results = await Future.wait([routeFuture, driversFuture]);
+
+      final route = results[0] as RouteInfo;
+      final driversRaw = results[1] as List?;
+
+      double? nearestDriverKm;
+      if (driversRaw != null && driversRaw.isNotEmpty) {
+        // Drivers are sorted nearest-first by the RPC
+        nearestDriverKm =
+            (driversRaw.first['distance_km'] as num?)?.toDouble();
       }
 
       if (mounted) {

@@ -25,7 +25,7 @@ class AdminSidebar extends ConsumerWidget {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: Image.asset(
-                    'assets/icons/new_logo.png',
+                    'assets/icons/logo.png',
                     width: 36,
                     height: 36,
                     fit: BoxFit.cover,
