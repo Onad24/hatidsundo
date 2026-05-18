@@ -117378,7 +117378,7 @@ break
 case 6:case 1:return A.r(q,r)
 case 2:return A.q(o.at(-1),r)}})
 return A.t($async$Ay,r)},
-I(a0){var s,r,q,p,o=this,n=null,m="assets/icons/logo.png",l=A.bhE(),k=A.p4(n,A.am(n,n,B.k,n,n,new A.aw(B.x.aU(0.15),n,n,n,n,n,B.bj),n,600,n,n,n,n,n,600),n,n,n,-100,-200,n),j=A.p4(-100,A.am(n,n,B.k,n,n,new A.aw(B.eD.aU(0.1),n,n,n,n,n,B.bj),n,400,n,n,n,n,n,400),n,n,-100,n,n,n),i=o.asw(),h=A.c1(a0,n,t.w).w.a.a>800,g=h?B.ay:B.ag,f=h?1:0,e=h?B.J:B.m,d=B.h.aU(0.05),c=A.aA(100),b=A.k_(B.h.aU(0.1),1),a=t.p
+I(a0){var s,r,q,p,o=this,n=null,m="assets/icons/new logo 2.png",l=A.bhE(),k=A.p4(n,A.am(n,n,B.k,n,n,new A.aw(B.x.aU(0.15),n,n,n,n,n,B.bj),n,600,n,n,n,n,n,600),n,n,n,-100,-200,n),j=A.p4(-100,A.am(n,n,B.k,n,n,new A.aw(B.eD.aU(0.1),n,n,n,n,n,B.bj),n,400,n,n,n,n,n,400),n,n,-100,n,n,n),i=o.asw(),h=A.c1(a0,n,t.w).w.a.a>800,g=h?B.ay:B.ag,f=h?1:0,e=h?B.J:B.m,d=B.h.aU(0.05),c=A.aA(100),b=A.k_(B.h.aU(0.1),1),a=t.p
 c=A.am(n,A.aW(A.b([A.am(n,n,B.k,n,n,B.rJ,n,8,n,n,n,n,n,8),B.cl,B.aiN],a),B.m,B.i,B.aJ,0,n),B.k,n,n,new A.aw(d,n,b,c,n,n,B.r),n,n,n,n,B.eJ,n,n,n)
 b=A.U(a0).ok.a
 d=b==null?n:b.aRF(B.h,B.v4,1.1)
