@@ -20,7 +20,13 @@ class _FareSettingsScreenState extends ConsumerState<FareSettingsScreen> {
   final _formKey = GlobalKey<FormState>();
 
   late TextEditingController _baseFareCtrl;
+  late TextEditingController _baseFareMotorcycleCtrl;
+  late TextEditingController _baseFareSedanCtrl;
+  late TextEditingController _baseFareSuvCtrl;
   late TextEditingController _perKmRateCtrl;
+  late TextEditingController _perKmMotorcycleCtrl;
+  late TextEditingController _perKmSedanCtrl;
+  late TextEditingController _perKmSuvCtrl;
   late TextEditingController _nightMultiplierCtrl;
   late TextEditingController _nightStartCtrl;
   late TextEditingController _nightEndCtrl;
@@ -36,7 +42,13 @@ class _FareSettingsScreenState extends ConsumerState<FareSettingsScreen> {
   @override
   void dispose() {
     _baseFareCtrl.dispose();
+    _baseFareMotorcycleCtrl.dispose();
+    _baseFareSedanCtrl.dispose();
+    _baseFareSuvCtrl.dispose();
     _perKmRateCtrl.dispose();
+    _perKmMotorcycleCtrl.dispose();
+    _perKmSedanCtrl.dispose();
+    _perKmSuvCtrl.dispose();
     _nightMultiplierCtrl.dispose();
     _nightStartCtrl.dispose();
     _nightEndCtrl.dispose();
@@ -51,8 +63,26 @@ class _FareSettingsScreenState extends ConsumerState<FareSettingsScreen> {
     _baseFareCtrl = TextEditingController(
       text: settings.baseFare.toStringAsFixed(0),
     );
+    _baseFareMotorcycleCtrl = TextEditingController(
+      text: settings.baseFareMotorcycle.toStringAsFixed(0),
+    );
+    _baseFareSedanCtrl = TextEditingController(
+      text: settings.baseFareSedan.toStringAsFixed(0),
+    );
+    _baseFareSuvCtrl = TextEditingController(
+      text: settings.baseFareSuv.toStringAsFixed(0),
+    );
     _perKmRateCtrl = TextEditingController(
       text: settings.perKmRate.toStringAsFixed(0),
+    );
+    _perKmMotorcycleCtrl = TextEditingController(
+      text: settings.perKmRateMotorcycle.toStringAsFixed(0),
+    );
+    _perKmSedanCtrl = TextEditingController(
+      text: settings.perKmRateSedan.toStringAsFixed(0),
+    );
+    _perKmSuvCtrl = TextEditingController(
+      text: settings.perKmRateSuv.toStringAsFixed(0),
     );
     _nightMultiplierCtrl = TextEditingController(
       text: settings.nightRateMultiplier.toStringAsFixed(2),
@@ -79,7 +109,13 @@ class _FareSettingsScreenState extends ConsumerState<FareSettingsScreen> {
           .from('fare_settings')
           .update({
             'base_fare': double.parse(_baseFareCtrl.text),
+            'base_fare_motorcycle': double.parse(_baseFareMotorcycleCtrl.text),
+            'base_fare_sedan': double.parse(_baseFareSedanCtrl.text),
+            'base_fare_suv': double.parse(_baseFareSuvCtrl.text),
             'per_km_rate': double.parse(_perKmRateCtrl.text),
+            'per_km_rate_motorcycle': double.parse(_perKmMotorcycleCtrl.text),
+            'per_km_rate_sedan': double.parse(_perKmSedanCtrl.text),
+            'per_km_rate_suv': double.parse(_perKmSuvCtrl.text),
             'night_rate_multiplier': double.parse(_nightMultiplierCtrl.text),
             'night_start_hour': int.parse(_nightStartCtrl.text),
             'night_end_hour': int.parse(_nightEndCtrl.text),
@@ -115,23 +151,25 @@ class _FareSettingsScreenState extends ConsumerState<FareSettingsScreen> {
 
   /// Build a live fare preview based on current form values.
   Widget _buildPreview() {
-    final baseFare = double.tryParse(_baseFareCtrl.text) ?? 25;
-    final perKmRate = double.tryParse(_perKmRateCtrl.text) ?? 8;
+    final baseFareMotorcycle = double.tryParse(_baseFareMotorcycleCtrl.text) ?? 20;
+    final baseFareSedan = double.tryParse(_baseFareSedanCtrl.text) ?? 25;
+    final baseFareSuv = double.tryParse(_baseFareSuvCtrl.text) ?? 35;
+    final perKmMotorcycle = double.tryParse(_perKmMotorcycleCtrl.text) ?? 6;
+    final perKmSedan = double.tryParse(_perKmSedanCtrl.text) ?? 8;
+    final perKmSuv = double.tryParse(_perKmSuvCtrl.text) ?? 12;
     final nightMult = double.tryParse(_nightMultiplierCtrl.text) ?? 1.2;
     final platformPct = (double.tryParse(_platformFeeCtrl.text) ?? 10) / 100;
     final destKm = double.tryParse(_previewDestKmCtrl.text) ?? 5;
     final driverKm = double.tryParse(_previewDriverKmCtrl.text) ?? 2;
 
-    final dayFare =
-        baseFare +
-        (driverKm.floorToDouble() * perKmRate) +
-        (destKm.floorToDouble() * perKmRate);
-    final nightFare =
-        baseFare +
-        (driverKm.floorToDouble() * perKmRate) +
-        (destKm.floorToDouble() * perKmRate * nightMult);
-    final dayPlatformFee = dayFare * platformPct;
-    final nightPlatformFee = nightFare * platformPct;
+    double calcFare(double base, double rate) =>
+        base +
+        (driverKm.floorToDouble() * rate) +
+        (destKm.floorToDouble() * rate);
+    double calcNightFare(double base, double rate) =>
+        base +
+        (driverKm.floorToDouble() * rate) +
+        (destKm.floorToDouble() * rate * nightMult);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -171,30 +209,89 @@ class _FareSettingsScreenState extends ConsumerState<FareSettingsScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildPreviewCard(
-                  icon: Icons.wb_sunny_rounded,
-                  iconColor: AppTheme.warningColor,
-                  title: 'Day Fare',
-                  fare: dayFare,
-                  platformFee: dayPlatformFee,
-                  driverEarnings: dayFare - dayPlatformFee,
-                ),
+          // Motorcycle row
+          _buildPreviewRow(
+            label: '🏍️ Motorcycle',
+            dayFare: calcFare(baseFareMotorcycle, perKmMotorcycle),
+            nightFare: calcNightFare(baseFareMotorcycle, perKmMotorcycle),
+            platformPct: platformPct,
+          ),
+          const SizedBox(height: 8),
+          // Sedan row
+          _buildPreviewRow(
+            label: '🚗 Sedan (2-4)',
+            dayFare: calcFare(baseFareSedan, perKmSedan),
+            nightFare: calcNightFare(baseFareSedan, perKmSedan),
+            platformPct: platformPct,
+          ),
+          const SizedBox(height: 8),
+          // SUV row
+          _buildPreviewRow(
+            label: '🚙 SUV (6-8)',
+            dayFare: calcFare(baseFareSuv, perKmSuv),
+            nightFare: calcNightFare(baseFareSuv, perKmSuv),
+            platformPct: platformPct,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPreviewRow({
+    required String label,
+    required double dayFare,
+    required double nightFare,
+    required double platformPct,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontFamily: 'Outfit',
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildPreviewCard(
-                  icon: Icons.nightlight_round,
-                  iconColor: Colors.indigo,
-                  title: 'Night Fare',
-                  fare: nightFare,
-                  platformFee: nightPlatformFee,
-                  driverEarnings: nightFare - nightPlatformFee,
+            ),
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                const Text('Day', style: TextStyle(fontSize: 10, color: AppTheme.neutral500)),
+                Text(
+                  '₱${dayFare.toStringAsFixed(0)}',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                 ),
-              ),
-            ],
+                Text(
+                  'Fee: ₱${(dayFare * platformPct).toStringAsFixed(0)}',
+                  style: const TextStyle(fontSize: 10, color: AppTheme.neutral500),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                const Text('Night', style: TextStyle(fontSize: 10, color: AppTheme.neutral500)),
+                Text(
+                  '₱${nightFare.toStringAsFixed(0)}',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                ),
+                Text(
+                  'Fee: ₱${(nightFare * platformPct).toStringAsFixed(0)}',
+                  style: const TextStyle(fontSize: 10, color: AppTheme.neutral500),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -254,78 +351,7 @@ class _FareSettingsScreenState extends ConsumerState<FareSettingsScreen> {
     );
   }
 
-  Widget _buildPreviewCard({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required double fare,
-    required double platformFee,
-    required double driverEarnings,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: AppTheme.cardShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: iconColor, size: 18),
-              const SizedBox(width: 6),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontFamily: 'Outfit',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _previewRow('Total Fare', '₱${fare.toStringAsFixed(0)}', bold: true),
-          _previewRow('Platform Fee', '₱${platformFee.toStringAsFixed(0)}'),
-          _previewRow(
-            'Driver Earnings',
-            '₱${driverEarnings.toStringAsFixed(0)}',
-            color: AppTheme.successColor,
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _previewRow(
-    String label,
-    String value, {
-    bool bold = false,
-    Color? color,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 12, color: AppTheme.neutral500),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -480,17 +506,45 @@ class _FareSettingsScreenState extends ConsumerState<FareSettingsScreen> {
                         ),
                         const SizedBox(height: 20),
                         _buildFormField(
-                          label: 'Base Fare (₱)',
-                          controller: _baseFareCtrl,
-                          hint: 'e.g. 25',
-                          icon: Icons.attach_money_rounded,
+                          label: 'Base Fare — Motorcycle (₱)',
+                          controller: _baseFareMotorcycleCtrl,
+                          hint: 'e.g. 20',
+                          icon: Icons.two_wheeler_rounded,
                         ),
                         const SizedBox(height: 16),
                         _buildFormField(
-                          label: 'Per-Km Rate (₱)',
-                          controller: _perKmRateCtrl,
+                          label: 'Base Fare — Sedan / 2-4 Seaters (₱)',
+                          controller: _baseFareSedanCtrl,
+                          hint: 'e.g. 25',
+                          icon: Icons.directions_car_rounded,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildFormField(
+                          label: 'Base Fare — SUV / 6-8 Seaters (₱)',
+                          controller: _baseFareSuvCtrl,
+                          hint: 'e.g. 35',
+                          icon: Icons.directions_car_filled_rounded,
+                        ),
+                        const Divider(height: 32),
+                        _buildFormField(
+                          label: 'Per-Km Rate — Motorcycle (₱)',
+                          controller: _perKmMotorcycleCtrl,
+                          hint: 'e.g. 6',
+                          icon: Icons.two_wheeler_rounded,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildFormField(
+                          label: 'Per-Km Rate — Sedan / 2-4 Seaters (₱)',
+                          controller: _perKmSedanCtrl,
                           hint: 'e.g. 8',
-                          icon: Icons.straighten_rounded,
+                          icon: Icons.directions_car_rounded,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildFormField(
+                          label: 'Per-Km Rate — SUV / 6-8 Seaters (₱)',
+                          controller: _perKmSuvCtrl,
+                          hint: 'e.g. 12',
+                          icon: Icons.directions_car_filled_rounded,
                         ),
                         const SizedBox(height: 16),
                         _buildFormField(

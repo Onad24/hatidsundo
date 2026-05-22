@@ -33,6 +33,7 @@ class TripService {
     String? destAddress,
     String paymentMethod = 'cash',
     double? nearestDriverDistanceKm,
+    String? vehicleType,
   }) async {
     print('DEBUG createTrip: starting for client $clientId');
 
@@ -58,7 +59,23 @@ class TripService {
           .eq('id', 1)
           .single();
       baseFare = (fareRow['base_fare'] as num?)?.toDouble() ?? 25.0;
-      perKmRate = (fareRow['per_km_rate'] as num?)?.toDouble() ?? 8.0;
+      // Use per-vehicle-type base fare and rate if available
+      switch (vehicleType) {
+        case 'motorcycle':
+          baseFare = (fareRow['base_fare_motorcycle'] as num?)?.toDouble() ?? 20.0;
+          perKmRate = (fareRow['per_km_rate_motorcycle'] as num?)?.toDouble() ?? 6.0;
+          break;
+        case 'suv':
+          baseFare = (fareRow['base_fare_suv'] as num?)?.toDouble() ?? 35.0;
+          perKmRate = (fareRow['per_km_rate_suv'] as num?)?.toDouble() ?? 12.0;
+          break;
+        case 'sedan':
+          baseFare = (fareRow['base_fare_sedan'] as num?)?.toDouble() ?? 25.0;
+          perKmRate = (fareRow['per_km_rate_sedan'] as num?)?.toDouble() ?? 8.0;
+          break;
+        default:
+          perKmRate = (fareRow['per_km_rate'] as num?)?.toDouble() ?? 8.0;
+      }
       nightRateMultiplier =
           (fareRow['night_rate_multiplier'] as num?)?.toDouble() ?? 1.2;
       nightStartHour = (fareRow['night_start_hour'] as int?) ?? 21;
@@ -90,6 +107,7 @@ class TripService {
       'duration_min': route.durationMinutes,
       'fare_estimated': estimatedFare,
       'driver_pickup_distance_km': nearestDriverDistanceKm,
+      'vehicle_type': vehicleType,
       'payment_method': paymentMethod,
       'payment_status': AppConstants.paymentPending,
       'route_polyline': route.polyline,

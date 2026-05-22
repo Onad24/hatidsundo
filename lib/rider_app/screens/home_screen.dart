@@ -525,6 +525,19 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
     );
   }
 
+  String _vehicleTypeLabel(String type) {
+    switch (type) {
+      case 'motorcycle':
+        return 'Motorcycle';
+      case 'sedan':
+        return 'Sedan (2-4)';
+      case 'suv':
+        return 'SUV (6-8)';
+      default:
+        return type;
+    }
+  }
+
   Widget _buildRideRequestCard(BuildContext context, dynamic trip) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -566,7 +579,28 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
+              if (trip.vehicleType != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    _vehicleTypeLabel(trip.vehicleType!),
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                ),
+              const Spacer(),
               Text(
                 '${trip.distanceKm?.toStringAsFixed(1) ?? '?'} km',
                 style: TextStyle(
@@ -575,7 +609,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                   color: AppTheme.neutral500,
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               Text(
                 '${trip.durationMin?.toStringAsFixed(0) ?? '?'} min',
                 style: TextStyle(

@@ -271,7 +271,7 @@ class _RiderApprovalCard extends StatelessWidget {
             children: [
               _buildInfoItem(
                 'Type',
-                rider['vehicle_type']?.toString().toUpperCase() ?? 'N/A',
+                _formatVehicleType(rider['vehicle_type']?.toString()),
               ),
               _buildInfoItem('Make', rider['vehicle_make'] ?? 'N/A'),
               _buildInfoItem('Model', rider['vehicle_model'] ?? 'N/A'),
@@ -355,6 +355,19 @@ class _RiderApprovalCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _formatVehicleType(String? type) {
+    switch (type) {
+      case 'motorcycle':
+        return 'MOTORCYCLE';
+      case 'sedan':
+        return 'SEDAN (2-4 Seaters)';
+      case 'suv':
+        return 'SUV (6-8 Seaters)';
+      default:
+        return type?.toUpperCase() ?? 'N/A';
+    }
   }
 
   Widget _buildInfoItem(String label, String value) {

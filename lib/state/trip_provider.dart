@@ -116,6 +116,7 @@ class TripNotifier extends StateNotifier<TripState> {
     required double destLng,
     String? destAddress,
     double? nearestDriverDistanceKm,
+    String? vehicleType,
   }) async {
     print('DEBUG requestRide: userId=$_userId');
     if (_userId == null) {
@@ -135,6 +136,7 @@ class TripNotifier extends StateNotifier<TripState> {
         destLng: destLng,
         destAddress: destAddress,
         nearestDriverDistanceKm: nearestDriverDistanceKm,
+        vehicleType: vehicleType,
       );
       print('DEBUG requestRide: trip created with id=${trip.id}');
 

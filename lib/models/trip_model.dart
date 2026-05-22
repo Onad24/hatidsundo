@@ -78,6 +78,8 @@ class TripModel {
   final PaymentStatus paymentStatus;
   @JsonKey(name: 'payment_method')
   final String paymentMethod;
+  @JsonKey(name: 'vehicle_type')
+  final String? vehicleType;
   @JsonKey(name: 'route_polyline')
   final String? routePolyline;
   @JsonKey(name: 'cancellation_reason')
@@ -115,6 +117,7 @@ class TripModel {
     this.fareFinal,
     required this.paymentStatus,
     required this.paymentMethod,
+    this.vehicleType,
     this.routePolyline,
     this.cancellationReason,
     this.cancelledBy,
@@ -149,6 +152,7 @@ class TripModel {
     double? fareFinal,
     PaymentStatus? paymentStatus,
     String? paymentMethod,
+    String? vehicleType,
     String? routePolyline,
     String? cancellationReason,
     String? cancelledBy,
@@ -177,6 +181,7 @@ class TripModel {
       fareFinal: fareFinal ?? this.fareFinal,
       paymentStatus: paymentStatus ?? this.paymentStatus,
       paymentMethod: paymentMethod ?? this.paymentMethod,
+      vehicleType: vehicleType ?? this.vehicleType,
       routePolyline: routePolyline ?? this.routePolyline,
       cancellationReason: cancellationReason ?? this.cancellationReason,
       cancelledBy: cancelledBy ?? this.cancelledBy,

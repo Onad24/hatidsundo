@@ -202,13 +202,19 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                 _buildVehicleTypeOption(
                   'motorcycle',
                   Icons.two_wheeler_rounded,
+                  null,
                 ),
                 const SizedBox(width: 12),
-                _buildVehicleTypeOption('sedan', Icons.directions_car_rounded),
+                _buildVehicleTypeOption(
+                  'sedan',
+                  Icons.directions_car_rounded,
+                  '2-4 Seaters',
+                ),
                 const SizedBox(width: 12),
                 _buildVehicleTypeOption(
                   'suv',
                   Icons.directions_car_filled_rounded,
+                  '6-8 Seaters',
                 ),
               ],
             ),
@@ -362,7 +368,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
     );
   }
 
-  Widget _buildVehicleTypeOption(String type, IconData icon) {
+  Widget _buildVehicleTypeOption(String type, IconData icon, String? seaterLabel) {
     final isSelected = _vehicleType == type;
     return Expanded(
       child: Material(
@@ -404,6 +410,20 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                         : AppTheme.neutral600,
                   ),
                 ),
+                if (seaterLabel != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    seaterLabel,
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: isSelected
+                          ? AppTheme.primaryColor.withValues(alpha: 0.7)
+                          : AppTheme.neutral400,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

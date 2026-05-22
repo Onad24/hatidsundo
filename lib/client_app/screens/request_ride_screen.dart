@@ -32,6 +32,7 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
   _nearestDriverDistanceKm; // distance from nearest available rider to pickup
   bool _isLoading = false;
   bool _selectingPickup = true;
+  String _selectedVehicleType = 'sedan';
 
   // Search state
   List<LocationResult> _searchResults = [];
@@ -258,6 +259,7 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
         destLng: _destLocation!.longitude,
         destAddress: _destAddress,
         nearestDriverDistanceKm: _nearestDriverDistanceKm,
+        vehicleType: _selectedVehicleType,
       );
 
       if (trip != null && mounted) {
@@ -506,12 +508,13 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
     final estimatedFare = fareSettings.calculateFare(
       destKm: destKm,
       driverPickupKm: driverKm,
+      vehicleType: _selectedVehicleType,
     );
     final isNight = fareSettings.isNightTime(DateTime.now());
     final bool noDriversNearby = _nearestDriverDistanceKm == null;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -525,74 +528,106 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
       child: SafeArea(
         top: false,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Route stats
+            // Distance & duration row
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildRouteStat(
-                  icon: Icons.straighten_rounded,
-                  value: '${_routeInfo!.distanceKm.toStringAsFixed(1)} km',
-                  label: 'Distance',
+                Icon(Icons.straighten_rounded, size: 16, color: AppTheme.neutral400),
+                const SizedBox(width: 4),
+                Text(
+                  '${_routeInfo!.distanceKm.toStringAsFixed(1)} km',
+                  style: const TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.neutral600,
+                  ),
                 ),
-                Container(width: 1, height: 40, color: AppTheme.neutral200),
-                _buildRouteStat(
-                  icon: Icons.schedule_rounded,
-                  value: '${_routeInfo!.durationMinutes} min',
-                  label: 'Duration',
+                const SizedBox(width: 16),
+                Icon(Icons.schedule_rounded, size: 16, color: AppTheme.neutral400),
+                const SizedBox(width: 4),
+                Text(
+                  '${_routeInfo!.durationMinutes} min',
+                  style: const TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.neutral600,
+                  ),
                 ),
-                Container(width: 1, height: 40, color: AppTheme.neutral200),
-                _buildRouteStat(
-                  icon: Icons.payments_rounded,
-                  value: noDriversNearby
-                      ? '₱${estimatedFare.toStringAsFixed(0)}+'
-                      : '₱${estimatedFare.toStringAsFixed(0)}',
-                  label: noDriversNearby ? 'Est. Fare*' : 'Est. Fare',
+                const Spacer(),
+                if (isNight)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppTheme.warningColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '🌙 Night rate',
+                      style: TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.warningColor,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // Vehicle type selector
+            Row(
+              children: [
+                _buildVehicleTypeChip(
+                  type: 'motorcycle',
+                  icon: Icons.two_wheeler_rounded,
+                  label: 'Motorcycle',
+                  fare: fareSettings.calculateFare(
+                    destKm: destKm,
+                    driverPickupKm: driverKm,
+                    vehicleType: 'motorcycle',
+                  ),
+                ),
+                const SizedBox(width: 6),
+                _buildVehicleTypeChip(
+                  type: 'sedan',
+                  icon: Icons.directions_car_rounded,
+                  label: 'Sedan',
+                  subtitle: '2-4 Seaters',
+                  fare: fareSettings.calculateFare(
+                    destKm: destKm,
+                    driverPickupKm: driverKm,
+                    vehicleType: 'sedan',
+                  ),
+                ),
+                const SizedBox(width: 6),
+                _buildVehicleTypeChip(
+                  type: 'suv',
+                  icon: Icons.directions_car_filled_rounded,
+                  label: 'SUV',
+                  subtitle: '6-8 Seaters',
+                  fare: fareSettings.calculateFare(
+                    destKm: destKm,
+                    driverPickupKm: driverKm,
+                    vehicleType: 'suv',
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-
-            // Night rate indicator
-            if (isNight)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.warningColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('🌙 ', style: TextStyle(fontSize: 14)),
-                      Text(
-                        'Night rate applied (+20% distance fare)',
-                        style: TextStyle(
-                          fontFamily: 'Outfit',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: AppTheme.warningColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            const SizedBox(height: 10),
 
             // Disclaimer if no nearby driver found
             if (noDriversNearby)
               Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
-                  '* No active riders found nearby. Fare estimate excludes pickup distance.',
+                  '* Fare estimate excludes pickup distance (no nearby riders found)',
                   style: TextStyle(
                     fontFamily: 'Outfit',
-                    fontSize: 11,
+                    fontSize: 10,
                     color: AppTheme.neutral500,
                   ),
                 ),
@@ -601,7 +636,7 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
             // Request button
             SizedBox(
               width: double.infinity,
-              height: 56,
+              height: 50,
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _requestRide,
                 child: _isLoading
@@ -613,10 +648,88 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
                           color: Colors.white,
                         ),
                       )
-                    : const Text('Request Ride'),
+                    : Text(
+                        noDriversNearby
+                            ? 'Request Ride  •  ₱${estimatedFare.toStringAsFixed(0)}+'
+                            : 'Request Ride  •  ₱${estimatedFare.toStringAsFixed(0)}',
+                      ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVehicleTypeChip({
+    required String type,
+    required IconData icon,
+    required String label,
+    String? subtitle,
+    required double fare,
+  }) {
+    final isSelected = _selectedVehicleType == type;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedVehicleType = type),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? AppTheme.primaryColor.withValues(alpha: 0.1)
+                : AppTheme.neutral100,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+              width: 2,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: isSelected ? AppTheme.primaryColor : AppTheme.neutral400,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected
+                      ? AppTheme.primaryColor
+                      : AppTheme.neutral600,
+                ),
+              ),
+              if (subtitle != null)
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 8,
+                    color: isSelected
+                        ? AppTheme.primaryColor.withValues(alpha: 0.7)
+                        : AppTheme.neutral400,
+                  ),
+                ),
+              const SizedBox(height: 2),
+              Text(
+                '₱${fare.toStringAsFixed(0)}',
+                style: TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: isSelected
+                      ? AppTheme.primaryColor
+                      : AppTheme.neutral700,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
