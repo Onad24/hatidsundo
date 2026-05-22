@@ -484,127 +484,117 @@ class _FareSettingsScreenState extends ConsumerState<FareSettingsScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Left column — fare parameters
+                // Left column — Vehicle Fare Settings
                 Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: AppTheme.cardShadow,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Fare Parameters',
-                          style: TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        _buildFormField(
-                          label: 'Base Fare — Motorcycle (₱)',
-                          controller: _baseFareMotorcycleCtrl,
-                          hint: 'e.g. 20',
-                          icon: Icons.two_wheeler_rounded,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildFormField(
-                          label: 'Base Fare — Sedan / 2-4 Seaters (₱)',
-                          controller: _baseFareSedanCtrl,
-                          hint: 'e.g. 25',
-                          icon: Icons.directions_car_rounded,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildFormField(
-                          label: 'Base Fare — SUV / 6-8 Seaters (₱)',
-                          controller: _baseFareSuvCtrl,
-                          hint: 'e.g. 35',
-                          icon: Icons.directions_car_filled_rounded,
-                        ),
-                        const Divider(height: 32),
-                        _buildFormField(
-                          label: 'Per-Km Rate — Motorcycle (₱)',
-                          controller: _perKmMotorcycleCtrl,
-                          hint: 'e.g. 6',
-                          icon: Icons.two_wheeler_rounded,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildFormField(
-                          label: 'Per-Km Rate — Sedan / 2-4 Seaters (₱)',
-                          controller: _perKmSedanCtrl,
-                          hint: 'e.g. 8',
-                          icon: Icons.directions_car_rounded,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildFormField(
-                          label: 'Per-Km Rate — SUV / 6-8 Seaters (₱)',
-                          controller: _perKmSuvCtrl,
-                          hint: 'e.g. 12',
-                          icon: Icons.directions_car_filled_rounded,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildFormField(
-                          label: 'Platform Fee (%)',
-                          controller: _platformFeeCtrl,
-                          hint: 'e.g. 10',
-                          icon: Icons.percent_rounded,
-                          suffix: '%',
-                        ),
-                      ],
-                    ),
+                  child: Column(
+                    children: [
+                      _buildVehicleCard(
+                        title: '🏍️ Motorcycle Settings',
+                        baseFareCtrl: _baseFareMotorcycleCtrl,
+                        perKmCtrl: _perKmMotorcycleCtrl,
+                        baseHint: '20',
+                        perKmHint: '6',
+                      ),
+                      const SizedBox(height: 16),
+                      _buildVehicleCard(
+                        title: '🚗 Sedan (2-4 Seaters) Settings',
+                        baseFareCtrl: _baseFareSedanCtrl,
+                        perKmCtrl: _perKmSedanCtrl,
+                        baseHint: '25',
+                        perKmHint: '8',
+                      ),
+                      const SizedBox(height: 16),
+                      _buildVehicleCard(
+                        title: '🚙 SUV (6-8 Seaters) Settings',
+                        baseFareCtrl: _baseFareSuvCtrl,
+                        perKmCtrl: _perKmSuvCtrl,
+                        baseHint: '35',
+                        perKmHint: '12',
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 24),
 
-                // Right column — night rate settings
+                // Right column — Global & Night rate settings
                 Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: AppTheme.cardShadow,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Night Rate Settings',
-                          style: TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: AppTheme.cardShadow,
                         ),
-                        const SizedBox(height: 20),
-                        _buildFormField(
-                          label: 'Night Rate Multiplier',
-                          controller: _nightMultiplierCtrl,
-                          hint: 'e.g. 1.2',
-                          icon: Icons.nightlight_round,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Global Settings',
+                              style: TextStyle(
+                                fontFamily: 'Outfit',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            _buildFormField(
+                              label: 'Platform Fee (%)',
+                              controller: _platformFeeCtrl,
+                              hint: 'e.g. 10',
+                              icon: Icons.percent_rounded,
+                              suffix: '%',
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 16),
-                        _buildFormField(
-                          label: 'Night Start Hour (0-23)',
-                          controller: _nightStartCtrl,
-                          hint: 'e.g. 21 (9 PM)',
-                          icon: Icons.schedule_rounded,
-                          isInteger: true,
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: AppTheme.cardShadow,
                         ),
-                        const SizedBox(height: 16),
-                        _buildFormField(
-                          label: 'Night End Hour (0-23)',
-                          controller: _nightEndCtrl,
-                          hint: 'e.g. 5 (5 AM)',
-                          icon: Icons.schedule_rounded,
-                          isInteger: true,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Night Rate Settings',
+                              style: TextStyle(
+                                fontFamily: 'Outfit',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            _buildFormField(
+                              label: 'Night Rate Multiplier',
+                              controller: _nightMultiplierCtrl,
+                              hint: 'e.g. 1.2',
+                              icon: Icons.nightlight_round,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildFormField(
+                              label: 'Night Start Hour (0-23)',
+                              controller: _nightStartCtrl,
+                              hint: 'e.g. 21 (9 PM)',
+                              icon: Icons.schedule_rounded,
+                              isInteger: true,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildFormField(
+                              label: 'Night End Hour (0-23)',
+                              controller: _nightEndCtrl,
+                              hint: 'e.g. 5 (5 AM)',
+                              icon: Icons.schedule_rounded,
+                              isInteger: true,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -615,6 +605,50 @@ class _FareSettingsScreenState extends ConsumerState<FareSettingsScreen> {
             _buildPreview(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildVehicleCard({
+    required String title,
+    required TextEditingController baseFareCtrl,
+    required TextEditingController perKmCtrl,
+    required String baseHint,
+    required String perKmHint,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildFormField(
+            label: 'Base Fare (₱)',
+            controller: baseFareCtrl,
+            hint: 'e.g. $baseHint',
+            icon: Icons.attach_money_rounded,
+          ),
+          const SizedBox(height: 12),
+          _buildFormField(
+            label: 'Per-Km Rate (₱)',
+            controller: perKmCtrl,
+            hint: 'e.g. $perKmHint',
+            icon: Icons.straighten_rounded,
+          ),
+        ],
       ),
     );
   }
