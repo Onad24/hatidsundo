@@ -88,6 +88,11 @@ interface TripRow {
   rider_id?: string;
 }
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
 // ---------------------------------------------------------------------------
 // WEBVIEW MAP SUBMISSION (Leaflet & OpenStreetMap)
 // ---------------------------------------------------------------------------
@@ -97,10 +102,10 @@ async function handleSubmitLocation(req: Request): Promise<Response> {
     const { psid, lat, lng } = await req.json();
     const session = await getSession(psid);
     await handleLocationAttachment(psid, session, { lat, long: lng });
-    return new Response("OK", { status: 200 });
+    return new Response("OK", { status: 200, headers: corsHeaders });
   } catch (err) {
     console.error("Location submission error:", err);
-    return new Response("Internal Server Error", { status: 500 });
+    return new Response("Internal Server Error", { status: 500, headers: corsHeaders });
   }
 }
 
@@ -108,6 +113,10 @@ async function handleSubmitLocation(req: Request): Promise<Response> {
 // MAIN SERVER
 // ---------------------------------------------------------------------------
 serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   const url = new URL(req.url);
   const action = url.searchParams.get("action");
 
