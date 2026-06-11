@@ -39,7 +39,8 @@
     // Add Search Bar
     L.Control.geocoder({
       defaultMarkGeocode: false,
-      placeholder: "Search address..."
+      placeholder: "Search address...",
+      collapsed: false // Force the search bar to stay open
     }).on('markgeocode', function(e) {
       map.setView(e.geocode.center, 16);
     }).addTo(map);
