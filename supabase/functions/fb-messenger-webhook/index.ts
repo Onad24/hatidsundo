@@ -624,12 +624,31 @@ async function executeBooking(psid: string, session: BotSession) {
   }
 }
 
-// Distance-based fare estimator
+// Distance-based fare estimator matching lib/services/trip_service.dart
 function estimateFare(vehicleType: string, distanceKm: number): number {
-  const base: Record<string, number> = { motorcycle: 20, sedan: 25, suv: 35 };
-  const baseFare = base[vehicleType] ?? 25;
-  const perKm = 8;
-  return baseFare + (distanceKm * perKm);
+  let baseFare = 25.0;
+  let perKmRate = 8.0;
+  
+  if (vehicleType.toLowerCase() === 'motorcycle') {
+    baseFare = 20.0;
+    perKmRate = 6.0;
+  } else if (vehicleType.toLowerCase() === 'suv') {
+    baseFare = 35.0;
+    perKmRate = 12.0;
+  } else {
+    // Sedan
+    baseFare = 25.0;
+    perKmRate = 8.0;
+  }
+
+  // Night rate multiplier
+  const hour = new Date().getHours();
+  const nightStartHour = 21;
+  const nightEndHour = 5;
+  const isNight = hour >= nightStartHour || hour < nightEndHour;
+  const nightMultiplier = isNight ? 1.2 : 1.0;
+
+  return baseFare + (distanceKm * perKmRate * nightMultiplier);
 }
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
