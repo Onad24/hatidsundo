@@ -849,7 +849,7 @@ async function promptDriverMessage(psid: string) {
 async function relayMessageToDriver(psid: string, trip: TripRow, text: string) {
   try {
     const userId = await getOrCreateSupabaseUser(psid);
-    if (!userId || !trip.driver_id) {
+    if (!userId || !trip.rider_id) {
       await sendMessage(psid, { text: "I couldn't relay your message — the driver may not have been assigned yet." });
       return;
     }
@@ -867,7 +867,7 @@ async function relayMessageToDriver(psid: string, trip: TripRow, text: string) {
     });
 
     // Notify the driver via the existing send_notification function
-    notifyDriver(trip.driver_id, text).catch(() => {});
+    notifyDriver(trip.rider_id, text).catch(() => {});
 
     await sendMessage(psid, {
       text: `✅ Message sent to your driver:\n"${text}"\n\nThey'll see it in the Hatid Sundo app.`,

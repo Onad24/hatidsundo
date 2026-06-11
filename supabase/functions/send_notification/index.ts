@@ -38,6 +38,45 @@ serve(async (req) => {
       );
     }
 
+    // Check if the user is a Facebook Messenger user
+    const { data: fbUser } = await supabaseClient
+      .from('fb_users')
+      .select('psid')
+      .eq('user_id', user_id)
+      .maybeSingle();
+
+    if (fbUser && fbUser.psid) {
+      // Send Facebook Messenger message instead of FCM
+      const PAGE_ACCESS_TOKEN = Deno.env.get("FB_PAGE_ACCESS_TOKEN") ?? "";
+      const GRAPH_API = "https://graph.facebook.com/v19.0";
+      
+      const payload = {
+        recipient: { id: fbUser.psid },
+        message: { text: `🔔 ${title}\n${notifBody}` }
+      };
+
+      const res = await fetch(`${GRAPH_API}/me/messages?access_token=${PAGE_ACCESS_TOKEN}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+         console.error("FB Messenger error:", await res.text());
+      }
+
+      return new Response(
+        JSON.stringify({
+          sent: res.ok,
+          sent_count: res.ok ? 1 : 0,
+          total_tokens: 1,
+          platform: 'facebook_messenger'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Fallback to regular FCM for mobile app users
     const result = await sendFcmNotification(supabaseClient, user_id, title, notifBody, data);
 
     return new Response(
@@ -45,6 +84,7 @@ serve(async (req) => {
         sent: result.sent,
         sent_count: result.sentCount,
         total_tokens: result.totalTokens,
+        platform: 'fcm'
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
