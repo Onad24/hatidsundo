@@ -503,8 +503,14 @@ async function showBookingSummary(psid: string, data: SessionData) {
   const vehicleEmoji = data.vehicle_type === "sedan" ? "🚗" : data.vehicle_type === "suv" ? "🚙" : "🏍️";
   const vehicleLabel = (data.vehicle_type ?? "motorcycle").charAt(0).toUpperCase() + (data.vehicle_type ?? "motorcycle").slice(1);
 
-  // Estimate fare (simple client-side estimate — server will recalculate accurately)
-  const estimatedFare = estimateFare(data.vehicle_type ?? "motorcycle");
+  const pLat = data.pickup_lat ?? 11.1090;
+  const pLng = data.pickup_lng ?? 125.0210;
+  const dLat = data.dest_lat ?? 11.1090;
+  const dLng = data.dest_lng ?? 125.0210;
+  
+  const straightLineKm = getDistanceFromLatLonInKm(pLat, pLng, dLat, dLng);
+  const estimatedKm = straightLineKm * 1.3; // Road network multiplier
+  const estimatedFare = estimateFare(data.vehicle_type ?? "motorcycle", estimatedKm);
 
   const pickup = data.pickup_addr ?? "Your location";
   const dest = data.dest_addr ?? "Your destination";
@@ -556,10 +562,10 @@ async function executeBooking(psid: string, session: BotSession) {
     if (!userId) throw new Error("Could not create user account");
 
     // Use coords if provided, else use placeholder (geocoding would be done server-side in production)
-    const pickupLat = data.pickup_lat ?? 14.5995; // Manila default fallback
-    const pickupLng = data.pickup_lng ?? 120.9842;
-    const destLat = data.dest_lat ?? 14.5547;
-    const destLng = data.dest_lng ?? 121.0244;
+    const pickupLat = data.pickup_lat ?? 11.1090; // Tanauan, Leyte fallback
+    const pickupLng = data.pickup_lng ?? 125.0210;
+    const destLat = data.dest_lat ?? 11.1090;
+    const destLng = data.dest_lng ?? 125.0210;
 
     const tripData = {
       id: crypto.randomUUID(),
@@ -574,7 +580,7 @@ async function executeBooking(psid: string, session: BotSession) {
       vehicle_type: data.vehicle_type ?? "motorcycle",
       payment_method: "cash",
       payment_status: "pending",
-      fare_estimated: estimateFare(data.vehicle_type ?? "motorcycle"),
+      fare_estimated: estimateFare(data.vehicle_type ?? "motorcycle", getDistanceFromLatLonInKm(pickupLat, pickupLng, destLat, destLng) * 1.3),
       distance_km: 0, // Will be calculated when a driver accepts
       duration_min: 0,
       created_at: new Date().toISOString(),
@@ -618,10 +624,28 @@ async function executeBooking(psid: string, session: BotSession) {
   }
 }
 
-// Simple fare estimator — server recalculates accurately on driver accept
-function estimateFare(vehicleType: string): number {
+// Distance-based fare estimator
+function estimateFare(vehicleType: string, distanceKm: number): number {
   const base: Record<string, number> = { motorcycle: 20, sedan: 25, suv: 35 };
-  return base[vehicleType] ?? 25;
+  const baseFare = base[vehicleType] ?? 25;
+  const perKm = 8;
+  return baseFare + (distanceKm * perKm);
+}
+
+function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371; // Radius of the earth in km
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1); 
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2); 
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+  return R * c;
+}
+
+function deg2rad(deg: number) {
+  return deg * (Math.PI/180);
 }
 
 // Notify nearby drivers via match_driver Edge Function (best-effort)
