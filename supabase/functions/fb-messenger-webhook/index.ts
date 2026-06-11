@@ -975,14 +975,13 @@ async function handleHumanHandover(psid: string) {
   const INBOX_APP_ID = FB_APP_ID || "263902037430900"; // Facebook Page Inbox app ID
 
   try {
-    const res = await fetch(`${GRAPH_API}/me/pass_thread_control`, {
+    const res = await fetch(`${GRAPH_API}/me/pass_thread_control?access_token=${PAGE_ACCESS_TOKEN}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         recipient: { id: psid },
         target_app_id: INBOX_APP_ID,
         metadata: "Customer requested live agent via Messenger bot",
-        access_token: PAGE_ACCESS_TOKEN,
       }),
     });
 
@@ -1005,16 +1004,21 @@ async function handleHumanHandover(psid: string) {
 
 async function takeThreadControlBack(psid: string) {
   try {
-    await fetch(`${GRAPH_API}/me/take_thread_control`, {
+    const res = await fetch(`${GRAPH_API}/me/take_thread_control?access_token=${PAGE_ACCESS_TOKEN}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         recipient: { id: psid },
         metadata: "Bot taking back control via user keyword",
-        access_token: PAGE_ACCESS_TOKEN,
       }),
     });
-    console.log("Thread control taken back by Bot for PSID:", psid);
+    
+    if (!res.ok) {
+        const text = await res.text();
+        console.error("Take thread control failed with:", text);
+    } else {
+        console.log("Thread control taken back by Bot for PSID:", psid);
+    }
   } catch (err) {
     console.error("Take thread control failed:", err);
   }
