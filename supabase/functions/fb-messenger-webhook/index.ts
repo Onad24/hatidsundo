@@ -221,23 +221,63 @@ async function handleMessage(psid: string, message: any) {
       await handleConfirmChoice(psid, session, lower);
       return;
     case "handover":
-      // Thread is with human agent — don't respond
+      // If user types a known keyword, pull thread control back to the bot
+      if (
+        lower === "book a ride" ||
+        lower === "check my ride" ||
+        lower === "message driver" ||
+        lower === "main menu" ||
+        lower === "cancel request" ||
+        lower === "exit"
+      ) {
+        await takeThreadControlBack(psid);
+        await clearSession(psid);
+        if (lower === "book a ride") {
+          await startBookingFlow(psid);
+        } else if (lower === "check my ride") {
+          await checkStatus(psid);
+        } else if (lower === "cancel request") {
+          await initiateCancelRide(psid);
+        } else if (lower === "message driver") {
+          await promptDriverMessage(psid);
+        } else {
+          await sendMainMenu(psid);
+        }
+      } else if (lower === "cancel") {
+        const trip = await getActiveTrip(psid);
+        if (trip && (trip.status === "pending" || trip.status === "offered")) {
+          await takeThreadControlBack(psid);
+          await clearSession(psid);
+          await initiateCancelRide(psid);
+        }
+      }
       return;
   }
 
   // ── Idle intent matching ─────────────────────────────────────────────────
-  if (lower.includes("book") || lower.includes("ride") || lower.includes("sakay") || lower.includes("hatid")) {
+  if (lower === "book a ride") {
     await startBookingFlow(psid);
-  } else if (lower.includes("status") || lower.includes("track") || lower.includes("nasaan")) {
+  } else if (lower === "check my ride") {
     await checkStatus(psid);
-  } else if (lower.includes("cancel") || lower.includes("kansel")) {
+  } else if (lower === "cancel request") {
     await initiateCancelRide(psid);
-  } else if (lower.includes("driver") || lower.includes("message") || lower.includes("msg")) {
+  } else if (lower === "message driver") {
     await promptDriverMessage(psid);
-  } else if (lower.includes("human") || lower.includes("agent") || lower.includes("tao") || lower.includes("staff")) {
+  } else if (lower === "talk to an agent") {
     await handleHumanHandover(psid);
-  } else if (lower.includes("hi") || lower.includes("hello") || lower.includes("hey") || lower.includes("start") || lower.includes("menu")) {
+  } else if (lower === "main menu" || lower === "exit") {
     await sendMainMenu(psid);
+  } else if (lower === "cancel") {
+    const trip = await getActiveTrip(psid);
+    if (trip && (trip.status === "pending" || trip.status === "offered")) {
+      await initiateCancelRide(psid);
+    } else {
+      if (trip) {
+        await relayMessageToDriver(psid, trip, text);
+      } else {
+        await sendMainMenu(psid, "I didn't quite get that. Here's what I can do:");
+      }
+    }
   } else {
     // During active trip, treat unknown messages as driver messages
     const trip = await getActiveTrip(psid);
@@ -335,17 +375,36 @@ async function sendMainMenu(psid: string, intro?: string) {
     await sendMessage(psid, { text: intro });
   }
 
+  const trip = await getActiveTrip(psid);
+  let buttons: any[] = [];
+
+  if (trip && (trip.status === "pending" || trip.status === "offered")) {
+    buttons = [
+      { type: "postback", title: "📍 Check Status", payload: "CHECK_STATUS" },
+      { type: "postback", title: "❌ Cancel Request", payload: "CANCEL_RIDE" },
+      { type: "postback", title: "🧑 Talk to Agent", payload: "TALK_TO_HUMAN" },
+    ];
+  } else if (trip) {
+    buttons = [
+      { type: "postback", title: "📍 Check Status", payload: "CHECK_STATUS" },
+      { type: "postback", title: "💬 Message Driver", payload: "SEND_DRIVER_MESSAGE" },
+      { type: "postback", title: "🧑 Talk to Agent", payload: "TALK_TO_HUMAN" },
+    ];
+  } else {
+    buttons = [
+      { type: "postback", title: "🚗 Book a Ride", payload: "BOOK_RIDE" },
+      { type: "postback", title: "📍 Check Status", payload: "CHECK_STATUS" },
+      { type: "postback", title: "🧑 Talk to Agent", payload: "TALK_TO_HUMAN" },
+    ];
+  }
+
   await sendMessage(psid, {
     attachment: {
       type: "template",
       payload: {
         template_type: "button",
         text: "Choose an option below:",
-        buttons: [
-          { type: "postback", title: "🚗 Book a Ride", payload: "BOOK_RIDE" },
-          { type: "postback", title: "📍 Check Status", payload: "CHECK_STATUS" },
-          { type: "postback", title: "🧑 Talk to Agent", payload: "TALK_TO_HUMAN" },
-        ],
+        buttons: buttons,
       },
     },
   });
@@ -609,7 +668,7 @@ async function executeBooking(psid: string, session: BotSession) {
           text: `✅ Ride booked successfully!\n\n🆔 Booking #${insertedTrip.id.substring(0, 8).toUpperCase()}\n📍 From: ${data.pickup_addr ?? "Your location"}\n🏁 To: ${data.dest_addr ?? "Your destination"}\n\nWe're finding you a driver nearby. You'll be notified once one accepts your request!\n\nTypically takes 2–5 minutes.`,
           buttons: [
             { type: "postback", title: "📍 Check Status", payload: "CHECK_STATUS" },
-            { type: "postback", title: "❌ Cancel Ride", payload: "CANCEL_RIDE" },
+            { type: "postback", title: "❌ Cancel Request", payload: "CANCEL_RIDE" },
           ],
         },
       },
@@ -724,7 +783,7 @@ async function checkStatus(psid: string) {
 
     // Only show cancel if trip is still pending
     if (trip.status === "pending") {
-      buttons.push({ type: "postback", title: "❌ Cancel Ride", payload: "CANCEL_RIDE" });
+      buttons.push({ type: "postback", title: "❌ Cancel Request", payload: "CANCEL_RIDE" });
     }
 
     await sendMessage(psid, {
@@ -936,6 +995,23 @@ async function handleHumanHandover(psid: string) {
   } catch (err) {
     console.error("Handover request failed:", err);
     await clearSession(psid);
+  }
+}
+
+async function takeThreadControlBack(psid: string) {
+  try {
+    await fetch(`${GRAPH_API}/me/take_thread_control`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipient: { id: psid },
+        metadata: "Bot taking back control via user keyword",
+        access_token: PAGE_ACCESS_TOKEN,
+      }),
+    });
+    console.log("Thread control taken back by Bot for PSID:", psid);
+  } catch (err) {
+    console.error("Take thread control failed:", err);
   }
 }
 
