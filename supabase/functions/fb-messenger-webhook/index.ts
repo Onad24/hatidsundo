@@ -143,7 +143,7 @@ serve(async (req) => {
       if (body.object === "page") {
         await Promise.all(
           body.entry.map(async (entry: any) => {
-            const events: any[] = entry.messaging ?? [];
+            const events: any[] = entry.messaging ?? entry.standby ?? [];
             for (const event of events) {
               await dispatchEvent(event);
             }
@@ -295,6 +295,11 @@ async function handleMessage(psid: string, message: any) {
 async function handlePostback(psid: string, postback: any) {
   const payload: string = postback.payload;
   const session = await getSession(psid);
+
+  // If user interacts with a bot button, always reclaim thread control (unless they are explicitly asking for a human)
+  if (payload !== "TALK_TO_HUMAN") {
+    await takeThreadControlBack(psid);
+  }
 
   switch (payload) {
     case "GET_STARTED":
