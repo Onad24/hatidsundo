@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Pick Location</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body { margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; }
+    #map { flex: 1; width: 100%; }
+    .footer { padding: 16px; background: white; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 1000; }
+    button { width: 100%; padding: 14px; background: #0084ff; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; }
+    .center-marker { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%); z-index: 1000; pointer-events: none; font-size: 40px; margin-top: -10px; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="center-marker">📍</div>
+  <div class="footer">
+    <button id="btn" onclick="submitLocation()">Confirm Location</button>
+  </div>
+  <script>
+    // 1. Initialize Messenger Extensions
+    (function(d, s, id){
+      var js, fjs = d.getElementsByTagName(s)[0];
+      if (d.getElementById(id)) {return;}
+      js = d.createElement(s); js.id = id;
+      js.src = "//connect.facebook.net/en_US/messenger.Extensions.js";
+      fjs.parentNode.insertBefore(js, fjs);
+    }(document, 'script', 'Messenger'));
+
+    // 2. Initialize Map (Default: Manila)
+    const map = L.map('map').setView([14.5995, 120.9842], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    
+    // Try to get user's real GPS location
+    map.locate({setView: true, maxZoom: 16});
+
+    // 3. Handle Submission
+    async function submitLocation() {
+      const center = map.getCenter();
+      const btn = document.getElementById('btn');
+      btn.innerText = "Saving...";
+      btn.disabled = true;
+
+      // Extract PSID and Type from the URL Facebook opened
+      const urlParams = new URLSearchParams(window.location.search);
+      const psid = urlParams.get('psid');
+      const type = urlParams.get('type');
+      
+      // Send the data back to our Supabase Edge Function
+      const webhookUrl = 'https://dwogrvalyrbubwsaunyo.supabase.co/functions/v1/fb-messenger-webhook?action=submit_location';
+
+      try {
+        await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ psid, type, lat: center.lat, lng: center.lng })
+        });
+        
+        // Close the webview and return to chat
+        if (typeof MessengerExtensions !== 'undefined') {
+          MessengerExtensions.requestCloseBrowser(function() {}, function() {
+            btn.innerText = "Saved! You can close this window.";
+          });
+        } else {
+          btn.innerText = "Saved! You can close this window.";
+        }
+      } catch (e) {
+        btn.innerText = "Error. Try again.";
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
