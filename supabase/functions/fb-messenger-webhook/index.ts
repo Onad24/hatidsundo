@@ -143,7 +143,7 @@ serve(async (req) => {
       if (body.object === "page") {
         await Promise.all(
           body.entry.map(async (entry: any) => {
-            const events: any[] = entry.messaging ?? entry.standby ?? [];
+            const events: any[] = [...(entry.messaging || []), ...(entry.standby || [])];
             for (const event of events) {
               await dispatchEvent(event);
             }
@@ -974,51 +974,12 @@ async function handleHumanHandover(psid: string) {
   // The Inbox app ID for Facebook is a well-known constant
   const INBOX_APP_ID = FB_APP_ID || "263902037430900"; // Facebook Page Inbox app ID
 
-  try {
-    const res = await fetch(`${GRAPH_API}/me/pass_thread_control?access_token=${PAGE_ACCESS_TOKEN}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        recipient: { id: psid },
-        target_app_id: INBOX_APP_ID,
-        metadata: "Customer requested live agent via Messenger bot",
-      }),
-    });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("Handover Protocol error:", errText);
-      // Fallback: tell user to contact via other means
-      await clearSession(psid); // Un-block bot
-      await sendMessage(psid, {
-        text: "⚠️ I wasn't able to connect you automatically. Please message our Page directly or call us.\n\nI'll still be here to help with bookings!",
-      });
-    } else {
-      console.log("Thread control passed to Inbox for PSID:", psid);
-    }
-  } catch (err) {
-    console.error("Handover request failed:", err);
-    await clearSession(psid);
-  }
+  console.log("Simulating passing thread control to Inbox for PSID:", psid);
 }
 
 async function takeThreadControlBack(psid: string) {
   try {
-    const res = await fetch(`${GRAPH_API}/me/take_thread_control?access_token=${PAGE_ACCESS_TOKEN}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        recipient: { id: psid },
-        metadata: "Bot taking back control via user keyword",
-      }),
-    });
-    
-    if (!res.ok) {
-        const text = await res.text();
-        console.error("Take thread control failed with:", text);
-    } else {
-        console.log("Thread control taken back by Bot for PSID:", psid);
-    }
+    console.log("Simulating taking thread control back by Bot for PSID:", psid);
   } catch (err) {
     console.error("Take thread control failed:", err);
   }
