@@ -44,7 +44,9 @@ class UpdateService {
       final htmlUrl = data['html_url'] as String? ?? '';
       final assets = data['assets'] as List<dynamic>? ?? [];
 
-      debugPrint('DEBUG UPDATE: Tag name: $tagName, Assets count: ${assets.length}');
+      debugPrint(
+        'DEBUG UPDATE: Tag name: $tagName, Assets count: ${assets.length}',
+      );
 
       // Parse the version from the tag (strip leading 'v' if present)
       final latestVersion = tagName.startsWith('v')
@@ -54,7 +56,9 @@ class UpdateService {
       if (latestVersion.isEmpty) return false;
 
       final currentVersion = AppConstants.appVersion;
-      debugPrint('DEBUG UPDATE: Comparing latest ($latestVersion) with current ($currentVersion)');
+      debugPrint(
+        'DEBUG UPDATE: Comparing latest ($latestVersion) with current ($currentVersion)',
+      );
 
       if (_isNewerVersion(latestVersion, currentVersion)) {
         debugPrint('DEBUG UPDATE: Update is available!');
@@ -100,8 +104,12 @@ class UpdateService {
       final currentParts = current.split('.').map(int.parse).toList();
 
       // Pad shorter list with zeros
-      while (latestParts.length < 3) latestParts.add(0);
-      while (currentParts.length < 3) currentParts.add(0);
+      while (latestParts.length < 3) {
+        latestParts.add(0);
+      }
+      while (currentParts.length < 3) {
+        currentParts.add(0);
+      }
 
       for (int i = 0; i < 3; i++) {
         if (latestParts[i] > currentParts[i]) return true;
@@ -229,16 +237,16 @@ class UpdateService {
               Navigator.of(ctx).pop();
               final url = apkUrl ?? releasePageUrl;
               if (url.isNotEmpty) {
-                launchUrl(
-                  Uri.parse(url),
-                  mode: LaunchMode.externalApplication,
-                );
+                launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
               }
             },
             icon: const Icon(Icons.download_rounded, size: 18),
             label: const Text(
               'Update Now',
-              style: TextStyle(fontFamily: 'Outfit', fontWeight: FontWeight.w600),
+              style: TextStyle(
+                fontFamily: 'Outfit',
+                fontWeight: FontWeight.w600,
+              ),
             ),
             style: FilledButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,

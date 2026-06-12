@@ -633,6 +633,12 @@ async function executeBooking(psid: string, session: BotSession) {
 
       const calculatedDistance = getDistanceFromLatLonInKm(pickupLat, pickupLng, destLat, destLng) * 1.3;
       
+      // We explicitly calculate and preserve the fare so the client and database are completely in sync.
+      // If the RPC tries to overwrite this later, at least the estimated fare is perfectly accurate here.
+      const finalEstimatedFare = estimateFare(data.vehicle_type ?? "motorcycle", calculatedDistance);
+      
+      console.log(`[executeBooking] psid=${psid} distance=${calculatedDistance} fare=${finalEstimatedFare}`);
+      
       const tripData = {
         id: crypto.randomUUID(),
         client_id: userId,
@@ -646,7 +652,8 @@ async function executeBooking(psid: string, session: BotSession) {
         vehicle_type: data.vehicle_type ?? "motorcycle",
         payment_method: "cash",
         payment_status: "pending",
-        fare_estimated: estimateFare(data.vehicle_type ?? "motorcycle", calculatedDistance),
+        fare_estimated: finalEstimatedFare,
+        fare_final: finalEstimatedFare, // Pre-fill fare_final to prevent complete_trip_rpc from falling back to 25 if possible
         distance_km: calculatedDistance,
         duration_min: Math.round((calculatedDistance / 30) * 60), // rough estimate at 30km/h
         created_at: new Date().toISOString(),

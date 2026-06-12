@@ -5,9 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
 import '../../core/theme.dart';
-import '../../core/constants.dart';
 import '../../services/services.dart';
-import '../../services/fare_settings_service.dart';
 import '../../state/state.dart';
 import '../../widgets/map_widget.dart';
 
@@ -83,18 +81,21 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
         endLng: _destLocation!.longitude,
       );
 
-      final driversFuture = supabase.client.rpc(
-        'get_nearby_drivers',
-        params: {
-          'p_lat': _pickupLocation!.latitude,
-          'p_lng': _pickupLocation!.longitude,
-          'p_radius_km': 20.0, // wide radius for fare estimate
-        },
-      ).then<List?>((result) => result as List?).catchError((e) {
-        // Non-blocking: fare estimate will omit driver pickup distance
-        debugPrint('Could not fetch nearby drivers for fare estimate: $e');
-        return null;
-      });
+      final driversFuture = supabase.client
+          .rpc(
+            'get_nearby_drivers',
+            params: {
+              'p_lat': _pickupLocation!.latitude,
+              'p_lng': _pickupLocation!.longitude,
+              'p_radius_km': 20.0, // wide radius for fare estimate
+            },
+          )
+          .then<List?>((result) => result as List?)
+          .catchError((e) {
+            // Non-blocking: fare estimate will omit driver pickup distance
+            debugPrint('Could not fetch nearby drivers for fare estimate: $e');
+            return null;
+          });
 
       final results = await Future.wait([routeFuture, driversFuture]);
 
@@ -104,8 +105,7 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
       double? nearestDriverKm;
       if (driversRaw != null && driversRaw.isNotEmpty) {
         // Drivers are sorted nearest-first by the RPC
-        nearestDriverKm =
-            (driversRaw.first['distance_km'] as num?)?.toDouble();
+        nearestDriverKm = (driversRaw.first['distance_km'] as num?)?.toDouble();
       }
 
       if (mounted) {
@@ -533,7 +533,11 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
             // Distance & duration row
             Row(
               children: [
-                Icon(Icons.straighten_rounded, size: 16, color: AppTheme.neutral400),
+                Icon(
+                  Icons.straighten_rounded,
+                  size: 16,
+                  color: AppTheme.neutral400,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   '${_routeInfo!.distanceKm.toStringAsFixed(1)} km',
@@ -545,7 +549,11 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
                   ),
                 ),
                 const SizedBox(width: 16),
-                Icon(Icons.schedule_rounded, size: 16, color: AppTheme.neutral400),
+                Icon(
+                  Icons.schedule_rounded,
+                  size: 16,
+                  color: AppTheme.neutral400,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   '${_routeInfo!.durationMinutes} min',
@@ -559,7 +567,10 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
                 const Spacer(),
                 if (isNight)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: AppTheme.warningColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),

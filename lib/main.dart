@@ -9,7 +9,6 @@ import 'config/env.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
 import 'services/fcm_service.dart';
-import 'services/update_service.dart';
 
 /// Main entry point for the Hatid Sundo ride-hailing application
 void main() async {

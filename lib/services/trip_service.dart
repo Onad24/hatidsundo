@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -62,8 +61,10 @@ class TripService {
       // Use per-vehicle-type base fare and rate if available
       switch (vehicleType) {
         case 'motorcycle':
-          baseFare = (fareRow['base_fare_motorcycle'] as num?)?.toDouble() ?? 20.0;
-          perKmRate = (fareRow['per_km_rate_motorcycle'] as num?)?.toDouble() ?? 6.0;
+          baseFare =
+              (fareRow['base_fare_motorcycle'] as num?)?.toDouble() ?? 20.0;
+          perKmRate =
+              (fareRow['per_km_rate_motorcycle'] as num?)?.toDouble() ?? 6.0;
           break;
         case 'suv':
           baseFare = (fareRow['base_fare_suv'] as num?)?.toDouble() ?? 35.0;
@@ -132,10 +133,14 @@ class TripService {
           'pickup_lng': pickupLng,
         },
       );
-      print('DEBUG createTrip: match_driver notified ${matchResponse.data?['notified_drivers'] ?? 0} drivers');
+      print(
+        'DEBUG createTrip: match_driver notified ${matchResponse.data?['notified_drivers'] ?? 0} drivers',
+      );
     } catch (e) {
       // Notifications are optional - riders will see trips via realtime feed
-      print('DEBUG createTrip: match_driver notification failed (optional): $e');
+      print(
+        'DEBUG createTrip: match_driver notification failed (optional): $e',
+      );
     }
 
     return TripModel.fromJson(result);
@@ -166,8 +171,6 @@ class TripService {
 
     return TripModel.fromJson(tripData);
   }
-
-
 
   /// Update trip status to driver arriving
   Future<TripModel> markDriverArriving(String tripId) async {
@@ -245,17 +248,19 @@ class TripService {
     String type,
   ) {
     if (userId == null) return;
-    _supabaseService.callFunction(
-      'send_notification',
-      body: {
-        'user_id': userId,
-        'title': title,
-        'body': body,
-        'data': {'type': type, 'trip_id': tripId},
-      },
-    ).catchError((e) {
-      print('WARNING: $type notification failed (non-blocking): $e');
-    });
+    _supabaseService
+        .callFunction(
+          'send_notification',
+          body: {
+            'user_id': userId,
+            'title': title,
+            'body': body,
+            'data': {'type': type, 'trip_id': tripId},
+          },
+        )
+        .catchError((e) {
+          print('WARNING: $type notification failed (non-blocking): $e');
+        });
   }
 
   /// Cancel the trip
@@ -396,7 +401,8 @@ class TripService {
   Stream<TripModel> subscribeTripUpdates(String tripId) {
     final controller = StreamController<TripModel>.broadcast();
 
-    final channelName = 'trip_${tripId}_${DateTime.now().millisecondsSinceEpoch}';
+    final channelName =
+        'trip_${tripId}_${DateTime.now().millisecondsSinceEpoch}';
     final channel = _supabaseService
         .channel(channelName)
         .onPostgresChanges(
@@ -429,7 +435,8 @@ class TripService {
   Stream<void> subscribePendingTripChanges() {
     final controller = StreamController<void>.broadcast();
 
-    final channelName = 'pending_trips_feed_${DateTime.now().millisecondsSinceEpoch}';
+    final channelName =
+        'pending_trips_feed_${DateTime.now().millisecondsSinceEpoch}';
     final channel = _supabaseService
         .channel(channelName)
         .onPostgresChanges(
