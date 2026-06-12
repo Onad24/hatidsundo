@@ -631,24 +631,26 @@ async function executeBooking(psid: string, session: BotSession) {
     const destLat = data.dest_lat ?? 11.1090;
     const destLng = data.dest_lng ?? 125.0210;
 
-    const tripData = {
-      id: crypto.randomUUID(),
-      client_id: userId,
-      pickup_lat: pickupLat,
-      pickup_lng: pickupLng,
-      pickup_address: data.pickup_addr ?? "",
-      dest_lat: destLat,
-      dest_lng: destLng,
-      dest_address: data.dest_addr ?? "",
-      status: "pending",
-      vehicle_type: data.vehicle_type ?? "motorcycle",
-      payment_method: "cash",
-      payment_status: "pending",
-      fare_estimated: estimateFare(data.vehicle_type ?? "motorcycle", getDistanceFromLatLonInKm(pickupLat, pickupLng, destLat, destLng) * 1.3),
-      distance_km: 0, // Will be calculated when a driver accepts
-      duration_min: 0,
-      created_at: new Date().toISOString(),
-    };
+      const calculatedDistance = getDistanceFromLatLonInKm(pickupLat, pickupLng, destLat, destLng) * 1.3;
+      
+      const tripData = {
+        id: crypto.randomUUID(),
+        client_id: userId,
+        pickup_lat: pickupLat,
+        pickup_lng: pickupLng,
+        pickup_address: data.pickup_addr ?? "",
+        dest_lat: destLat,
+        dest_lng: destLng,
+        dest_address: data.dest_addr ?? "",
+        status: "pending",
+        vehicle_type: data.vehicle_type ?? "motorcycle",
+        payment_method: "cash",
+        payment_status: "pending",
+        fare_estimated: estimateFare(data.vehicle_type ?? "motorcycle", calculatedDistance),
+        distance_km: calculatedDistance,
+        duration_min: Math.round((calculatedDistance / 30) * 60), // rough estimate at 30km/h
+        created_at: new Date().toISOString(),
+      };
 
     const { data: insertedTrip, error: tripError } = await supabase
       .from("trips")
@@ -811,8 +813,8 @@ function formatTripStatus(status: string): string {
   const map: Record<string, string> = {
     pending: "⏳ Looking for a driver...",
     offered: "📨 Driver offer sent",
-    accepted: "✅ Driver accepted your ride",
-    driver_arriving: "🚗 Driver is on the way to you",
+    accepted: "🚗 Driver is on the way to pick you up",
+    driver_arriving: "📍 Driver has arrived at your location!",
     in_progress: "🏁 Trip in progress",
     completed: "✅ Trip completed",
     cancelled: "❌ Cancelled",
@@ -974,12 +976,50 @@ async function handleHumanHandover(psid: string) {
   // The Inbox app ID for Facebook is a well-known constant
   const INBOX_APP_ID = FB_APP_ID || "263902037430900"; // Facebook Page Inbox app ID
 
-  console.log("Simulating passing thread control to Inbox for PSID:", psid);
+  try {
+    const res = await fetch(`${GRAPH_API}/me/pass_thread_control?access_token=${PAGE_ACCESS_TOKEN}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipient: { id: psid },
+        target_app_id: INBOX_APP_ID,
+        metadata: "Customer requested live agent via Messenger bot",
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("Handover Protocol error:", errText);
+      await clearSession(psid);
+      await sendMessage(psid, {
+        text: "⚠️ I wasn't able to connect you automatically. Please message our Page directly or call us.",
+      });
+    } else {
+      console.log("Thread control passed to Inbox for PSID:", psid);
+    }
+  } catch (err) {
+    console.error("Handover request failed:", err);
+    await clearSession(psid);
+  }
 }
 
 async function takeThreadControlBack(psid: string) {
   try {
-    console.log("Simulating taking thread control back by Bot for PSID:", psid);
+    const res = await fetch(`${GRAPH_API}/me/take_thread_control?access_token=${PAGE_ACCESS_TOKEN}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipient: { id: psid },
+        metadata: "Bot taking back control via user keyword",
+      }),
+    });
+    
+    if (!res.ok) {
+        const text = await res.text();
+        console.error("Take thread control failed with:", text);
+    } else {
+        console.log("Thread control taken back by Bot for PSID:", psid);
+    }
   } catch (err) {
     console.error("Take thread control failed:", err);
   }
