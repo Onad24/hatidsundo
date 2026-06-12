@@ -160,12 +160,40 @@ class TripService {
 
     final tripData = result as Map<String, dynamic>;
 
+    // Fetch driver info to include in notification
+    String driverInfo = '';
+    try {
+      final profileResult = await _supabaseService.client
+          .from('rider_profiles')
+          .select('vehicle_color, vehicle_make, vehicle_model, plate_number, users(name, phone)')
+          .eq('user_id', riderId)
+          .maybeSingle();
+
+      if (profileResult != null) {
+        final users = profileResult['users'] as Map<String, dynamic>?;
+        final name = users?['name'] ?? 'Your driver';
+        final vehicleColor = profileResult['vehicle_color'] ?? '';
+        final vehicleMake = profileResult['vehicle_make'] ?? '';
+        final vehicleModel = profileResult['vehicle_model'] ?? '';
+        final plate = profileResult['plate_number'] ?? '';
+
+        final vehicle = '$vehicleColor $vehicleMake $vehicleModel'.trim();
+        if (vehicle.isNotEmpty || plate.isNotEmpty) {
+          driverInfo = '\n\nDriver: $name\nVehicle: $vehicle\nPlate: $plate';
+        } else {
+          driverInfo = '\n\nDriver: $name';
+        }
+      }
+    } catch (e) {
+      print('DEBUG fetching driver info failed: $e');
+    }
+
     // Notify client that a driver was assigned
     _sendTripNotification(
       tripData['client_id'],
       tripId,
-      'Driver Assigned',
-      'A driver has accepted your ride request!',
+      'Driver On The Way',
+      'A driver has accepted your ride request and is on the way!$driverInfo',
       'driver_assigned',
     );
 
