@@ -185,8 +185,8 @@ class TripService {
     _sendTripNotification(
       tripData['client_id'],
       tripId,
-      'Driver Arriving',
-      'Your driver is on the way to pick you up!',
+      'Driver Arrived',
+      'Your driver has arrived at the pickup location!',
       'driver_arriving',
     );
 

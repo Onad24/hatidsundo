@@ -32,14 +32,14 @@ BEGIN
 
   -- Complete the trip with recalculated fare
   UPDATE trips
-  SET
+  SET 
     status = 'completed',
     completed_at = NOW(),
     fare_final = v_fare,
-    payment_status = CASE 
+    payment_status = (CASE 
       WHEN payment_method = 'cash' THEN 'pending'
       ELSE 'completed'
-    END
+    END)::payment_status
   WHERE id = p_trip_id
   RETURNING row_to_json(trips.*) INTO v_result;
 

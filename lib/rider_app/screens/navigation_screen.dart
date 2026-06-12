@@ -346,7 +346,7 @@ class _NavigationScreenState extends ConsumerState<NavigationScreen> {
         actionText = 'Start Trip';
         actionHandler = () => ref.read(tripStateProvider.notifier).startTrip();
         actionColor = AppTheme.successColor;
-        statusLabel = 'Arriving at pickup';
+        statusLabel = 'Arrived at pickup';
         statusIcon = Icons.pin_drop_rounded;
         break;
       case TripStatus.inProgress:
