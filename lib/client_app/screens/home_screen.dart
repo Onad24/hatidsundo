@@ -19,8 +19,12 @@ class ClientHomeScreen extends ConsumerStatefulWidget {
   ConsumerState<ClientHomeScreen> createState() => _ClientHomeScreenState();
 }
 
+// Default fallback location (Tanauan, Batangas - app's home city)
+const _defaultLocation = LatLng(14.0864, 121.0159);
+
 class _ClientHomeScreenState extends ConsumerState<ClientHomeScreen> {
   LatLng? _currentLocation;
+  bool _locationError = false;
 
   @override
   void initState() {
@@ -89,11 +93,38 @@ class _ClientHomeScreenState extends ConsumerState<ClientHomeScreen> {
   }
 
   Future<void> _loadCurrentLocation() async {
-    final position = await ref.read(currentPositionProvider.future);
-    if (position != null && mounted) {
-      setState(() {
-        _currentLocation = LatLng(position.latitude, position.longitude);
-      });
+    try {
+      // Apply a 10-second timeout to avoid infinite spinner
+      final position = await ref
+          .read(currentPositionProvider.future)
+          .timeout(const Duration(seconds: 10));
+
+      if (mounted) {
+        setState(() {
+          if (position != null) {
+            _currentLocation = LatLng(position.latitude, position.longitude);
+          } else {
+            // Permission denied or GPS off — use default location
+            _currentLocation = _defaultLocation;
+            _locationError = true;
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Location fetch failed: $e');
+      if (mounted) {
+        setState(() {
+          // Fallback to default so the map still loads
+          _currentLocation = _defaultLocation;
+          _locationError = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not get your location. Using default map view.'),
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
     }
   }
 
@@ -116,6 +147,36 @@ class _ClientHomeScreenState extends ConsumerState<ClientHomeScreen> {
             _NearbyDriversMap(currentLocation: _currentLocation!)
           else
             const Center(child: CircularProgressIndicator()),
+
+          // GPS unavailable warning banner
+          if (_locationError)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 70,
+              left: 16,
+              right: 16,
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade700,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.location_off, color: Colors.white, size: 16),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'GPS unavailable — showing default location',
+                          style: TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'Outfit'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
 
           // Top bar with user info
           SafeArea(

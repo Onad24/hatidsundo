@@ -100,9 +100,30 @@ const corsHeaders = {
 
 async function handleSubmitLocation(req: Request): Promise<Response> {
   try {
-    const { psid, lat, lng } = await req.json();
-    const session = await getSession(psid);
-    await handleLocationAttachment(psid, session, { lat, long: lng });
+    const body = await req.json();
+    const { psid, pickup_lat, pickup_lng, pickup_addr, dest_lat, dest_lng, dest_addr } = body;
+
+    if (!psid) {
+      return new Response("Missing psid", { status: 400, headers: corsHeaders });
+    }
+
+    // Resolve addresses via reverse-geocode if not supplied by the map page
+    const resolvedPickupAddr = pickup_addr || await reverseGeocode(pickup_lat, pickup_lng);
+    const resolvedDestAddr   = dest_addr   || await reverseGeocode(dest_lat, dest_lng);
+
+    const data: SessionData = {
+      pickup_lat,
+      pickup_lng,
+      pickup_addr: resolvedPickupAddr,
+      dest_lat,
+      dest_lng,
+      dest_addr: resolvedDestAddr,
+    };
+
+    // Jump straight to vehicle selection — no second map needed
+    await setSession(psid, "awaiting_vehicle", data);
+    await askVehicleType(psid);
+
     return new Response("OK", { status: 200, headers: corsHeaders });
   } catch (err) {
     console.error("Location submission error:", err);
@@ -442,19 +463,20 @@ async function startBookingFlow(psid: string) {
   await setSession(psid, "awaiting_pickup", {});
 
   const mapBaseUrl = Deno.env.get("MAP_WEBVIEW_URL") || "https://your-marketing-site.com/map.html";
-  const mapUrl = `${mapBaseUrl}?psid=${psid}&type=pickup`;
+  // Single map load — user sets both pickup & destination in one session
+  const mapUrl = `${mapBaseUrl}?psid=${psid}`;
 
   await sendMessage(psid, {
     attachment: {
       type: "template",
       payload: {
         template_type: "button",
-        text: "🚗 Let's book your ride!\n\nFirst, where are you right now?",
+        text: "🚗 Let's book your ride!\n\nTap the button below to open the map. You'll pin your pickup location first, then your destination — all in one go!",
         buttons: [
           {
             type: "web_url",
             url: mapUrl,
-            title: "📍 Open Map",
+            title: "🗺️ Open Map",
             webview_height_ratio: "tall",
             messenger_extensions: true,
           }
@@ -465,23 +487,25 @@ async function startBookingFlow(psid: string) {
 }
 
 async function handlePickupText(psid: string, session: BotSession, text: string) {
+  // User typed an address instead of using the map.
+  // Store it and ask them to open the map to pin destination.
   const data: SessionData = { ...session.data, pickup_addr: text };
-  await setSession(psid, "awaiting_destination", data);
+  await setSession(psid, "awaiting_pickup", data);
 
   const mapBaseUrl = Deno.env.get("MAP_WEBVIEW_URL") || "https://your-marketing-site.com/map.html";
-  const mapUrl = `${mapBaseUrl}?psid=${psid}&type=destination`;
+  const mapUrl = `${mapBaseUrl}?psid=${psid}`;
 
   await sendMessage(psid, {
     attachment: {
       type: "template",
       payload: {
         template_type: "button",
-        text: `✅ Pickup: *${text}*\n\nNow, where are you headed?`,
+        text: `Got it! Please use the map to confirm both your pickup and destination.`,
         buttons: [
           {
             type: "web_url",
             url: mapUrl,
-            title: "🏁 Open Map",
+            title: "🗺️ Open Map",
             webview_height_ratio: "tall",
             messenger_extensions: true,
           }
@@ -502,54 +526,41 @@ async function handleLocationAttachment(
   session: BotSession,
   coords: { lat: number; long: number }
 ) {
+  // Native Messenger location pin shared while in awaiting_pickup state.
+  // Store as pickup and prompt them to use the map for destination too.
   const lat = coords.lat;
   const lng = coords.long;
+  const addr = await reverseGeocode(lat, lng);
 
-  if (session.state === "awaiting_pickup") {
-    const addr = await reverseGeocode(lat, lng);
-    const data: SessionData = {
-      ...session.data,
-      pickup_lat: lat,
-      pickup_lng: lng,
-      pickup_addr: addr,
-    };
-    await setSession(psid, "awaiting_destination", data);
+  const data: SessionData = {
+    ...session.data,
+    pickup_lat: lat,
+    pickup_lng: lng,
+    pickup_addr: addr,
+  };
+  await setSession(psid, "awaiting_pickup", data);
 
-    const mapBaseUrl = Deno.env.get("MAP_WEBVIEW_URL") || "https://your-marketing-site.com/map.html";
-    const mapUrl = `${mapBaseUrl}?psid=${psid}&type=destination`;
+  const mapBaseUrl = Deno.env.get("MAP_WEBVIEW_URL") || "https://your-marketing-site.com/map.html";
+  const mapUrl = `${mapBaseUrl}?psid=${psid}`;
 
-    await sendMessage(psid, {
-      attachment: {
-        type: "template",
-        payload: {
-          template_type: "button",
-          text: `✅ Pickup: ${addr}\n\nNow, where are you headed?`,
-          buttons: [
-            {
-              type: "web_url",
-              url: mapUrl,
-              title: "🏁 Open Map",
-              webview_height_ratio: "tall",
-              messenger_extensions: true,
-            }
-          ]
-        }
+  await sendMessage(psid, {
+    attachment: {
+      type: "template",
+      payload: {
+        template_type: "button",
+        text: `📍 Got your location!\n\nNow please open the map to confirm your pickup pin and set your destination.`,
+        buttons: [
+          {
+            type: "web_url",
+            url: mapUrl,
+            title: "🗺️ Open Map",
+            webview_height_ratio: "tall",
+            messenger_extensions: true,
+          }
+        ]
       }
-    });
-  } else if (session.state === "awaiting_destination") {
-    const addr = await reverseGeocode(lat, lng);
-    const data: SessionData = {
-      ...session.data,
-      dest_lat: lat,
-      dest_lng: lng,
-      dest_addr: addr,
-    };
-    await setSession(psid, "awaiting_vehicle", data);
-    await askVehicleType(psid);
-  } else {
-    // Unexpected location share — treat as pickup restart
-    await startBookingFlow(psid);
-  }
+    }
+  });
 }
 
 async function askVehicleType(psid: string) {
@@ -593,7 +604,8 @@ async function showBookingSummary(psid: string, data: SessionData) {
   
   const straightLineKm = getDistanceFromLatLonInKm(pLat, pLng, dLat, dLng);
   const estimatedKm = straightLineKm * 1.3; // Road network multiplier
-  const estimatedFare = estimateFare(data.vehicle_type ?? "motorcycle", estimatedKm);
+  // calculateFare mirrors FareSettings.calculateFare() from fare_settings_service.dart
+  const estimatedFare = await calculateFare(data.vehicle_type ?? "motorcycle", estimatedKm);
 
   const pickup = data.pickup_addr ?? "Your location";
   const dest = data.dest_addr ?? "Your destination";
@@ -603,7 +615,7 @@ async function showBookingSummary(psid: string, data: SessionData) {
       type: "template",
       payload: {
         template_type: "button",
-        text: `🧾 Booking Summary\n\n📍 From: ${pickup}\n🏁 To: ${dest}\n${vehicleEmoji} Vehicle: ${vehicleLabel}\n💰 Est. Fare: ₱${estimatedFare}+\n💳 Payment: Cash\n\nReady to confirm?`,
+        text: `🧾 Booking Summary\n\n📍 From: ${pickup}\n🏁 To: ${dest}\n${vehicleEmoji} Vehicle: ${vehicleLabel}\n💰 Est. Fare: ₱${estimatedFare.toFixed(0)}+\n💳 Payment: Cash\n\nReady to confirm?`,
         buttons: [
           { type: "postback", title: "✅ Confirm Booking", payload: "CONFIRM_BOOKING" },
           { type: "postback", title: "❌ Cancel", payload: "ABORT_BOOKING" },
@@ -652,9 +664,9 @@ async function executeBooking(psid: string, session: BotSession) {
 
       const calculatedDistance = getDistanceFromLatLonInKm(pickupLat, pickupLng, destLat, destLng) * 1.3;
       
-      // We explicitly calculate and preserve the fare so the client and database are completely in sync.
-      // If the RPC tries to overwrite this later, at least the estimated fare is perfectly accurate here.
-      const finalEstimatedFare = estimateFare(data.vehicle_type ?? "motorcycle", calculatedDistance);
+      // calculateFare mirrors FareSettings.calculateFare() from fare_settings_service.dart
+      // — reads live settings from fare_settings table, applies night multiplier only to destKm.
+      const finalEstimatedFare = await calculateFare(data.vehicle_type ?? "motorcycle", calculatedDistance);
       
       console.log(`[executeBooking] psid=${psid} distance=${calculatedDistance} fare=${finalEstimatedFare}`);
       
@@ -716,33 +728,103 @@ async function executeBooking(psid: string, session: BotSession) {
   }
 }
 
-// Distance-based fare estimator matching lib/services/trip_service.dart
-function estimateFare(vehicleType: string, distanceKm: number): number {
-  let baseFare = 25.0;
-  let perKmRate = 8.0;
-  
-  if (vehicleType.toLowerCase() === 'motorcycle') {
-    baseFare = 20.0;
-    perKmRate = 6.0;
-  } else if (vehicleType.toLowerCase() === 'suv') {
-    baseFare = 35.0;
-    perKmRate = 12.0;
-  } else {
-    // Sedan
-    baseFare = 25.0;
-    perKmRate = 8.0;
-  }
+// ---------------------------------------------------------------------------
+// FARE SETTINGS — mirrors lib/services/fare_settings_service.dart
+// ---------------------------------------------------------------------------
+interface FareSettings {
+  baseFare: number;
+  baseFareMotorcycle: number;
+  baseFareSedan: number;
+  baseFareSuv: number;
+  perKmRate: number;
+  perKmRateMotorcycle: number;
+  perKmRateSedan: number;
+  perKmRateSuv: number;
+  nightRateMultiplier: number;
+  nightStartHour: number;
+  nightEndHour: number;
+}
 
-  // Night rate multiplier (calculated using Philippine Time UTC+8)
+/** Fetch fare settings from the DB; falls back to the same defaults as Dart. */
+async function fetchFareSettings(): Promise<FareSettings> {
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("fare_settings")
+      .select("*")
+      .eq("id", 1)
+      .single();
+    if (error || !data) throw error;
+    return {
+      baseFare:              Number(data.base_fare)               || 25.0,
+      baseFareMotorcycle:    Number(data.base_fare_motorcycle)    || 20.0,
+      baseFareSedan:         Number(data.base_fare_sedan)         || 25.0,
+      baseFareSuv:           Number(data.base_fare_suv)           || 35.0,
+      perKmRate:             Number(data.per_km_rate)             || 8.0,
+      perKmRateMotorcycle:   Number(data.per_km_rate_motorcycle)  || 6.0,
+      perKmRateSedan:        Number(data.per_km_rate_sedan)       || 8.0,
+      perKmRateSuv:          Number(data.per_km_rate_suv)         || 12.0,
+      nightRateMultiplier:   Number(data.night_rate_multiplier)   || 1.2,
+      nightStartHour:        Number(data.night_start_hour)        || 21,
+      nightEndHour:          Number(data.night_end_hour)          || 5,
+    };
+  } catch (_) {
+    // Return the same defaults as the Dart FareSettings() constructor
+    return {
+      baseFare: 25.0, baseFareMotorcycle: 20.0, baseFareSedan: 25.0, baseFareSuv: 35.0,
+      perKmRate: 8.0, perKmRateMotorcycle: 6.0, perKmRateSedan: 8.0, perKmRateSuv: 12.0,
+      nightRateMultiplier: 1.2, nightStartHour: 21, nightEndHour: 5,
+    };
+  }
+}
+
+/** Mirrors FareSettings.getBaseFare() */
+function getBaseFare(fs: FareSettings, vehicleType: string): number {
+  switch (vehicleType.toLowerCase()) {
+    case 'motorcycle': return fs.baseFareMotorcycle;
+    case 'sedan':      return fs.baseFareSedan;
+    case 'suv':        return fs.baseFareSuv;
+    default:           return fs.baseFare;
+  }
+}
+
+/** Mirrors FareSettings.getPerKmRate() */
+function getPerKmRate(fs: FareSettings, vehicleType: string): number {
+  switch (vehicleType.toLowerCase()) {
+    case 'motorcycle': return fs.perKmRateMotorcycle;
+    case 'sedan':      return fs.perKmRateSedan;
+    case 'suv':        return fs.perKmRateSuv;
+    default:           return fs.perKmRate;
+  }
+}
+
+/** Mirrors FareSettings.isNightTime() — uses device-local PHT (UTC+8) */
+function isNightTime(fs: FareSettings): boolean {
   const utcHour = new Date().getUTCHours();
   const phtHour = (utcHour + 8) % 24;
-  const nightStartHour = 21;
-  const nightEndHour = 5;
-  const isNight = phtHour >= nightStartHour || phtHour < nightEndHour;
-  const nightMultiplier = isNight ? 1.2 : 1.0;
+  return phtHour >= fs.nightStartHour || phtHour < fs.nightEndHour;
+}
 
-  // Match app logic: base + (floor(destKm) * rate * nightMultiplier)
-  return baseFare + (Math.floor(distanceKm) * perKmRate * nightMultiplier);
+/**
+ * Mirrors FareSettings.calculateFare() exactly:
+ *   base + floor(driverPickupKm) * rate
+ *        + floor(destKm)         * rate * nightMultiplier
+ *
+ * driverPickupKm is always 0 in the Messenger context (driver not yet assigned).
+ */
+async function calculateFare(
+  vehicleType: string,
+  destKm: number,
+  driverPickupKm = 0.0
+): Promise<number> {
+  const fs = await fetchFareSettings();
+  const base     = getBaseFare(fs, vehicleType);
+  const rate     = getPerKmRate(fs, vehicleType);
+  const nightMul = isNightTime(fs) ? fs.nightRateMultiplier : 1.0;
+
+  return base
+    + Math.floor(driverPickupKm) * rate
+    + Math.floor(destKm) * rate * nightMul;
 }
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {

@@ -1,93 +1,446 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Pick Location</title>
+  <title>Hatid Sundo — Set Route</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- Search Plugin -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css"/>
   <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
   <style>
-    body { margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      display: flex; flex-direction: column;
+      height: 100vh;
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+    }
+
+    /* ── Step header bar ── */
+    #header {
+      background: #0084ff;
+      color: white;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 1001;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    #step-dots {
+      display: flex;
+      gap: 6px;
+    }
+    .dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.4);
+      transition: background 0.3s;
+    }
+    .dot.active { background: white; }
+    #step-label {
+      font-size: 15px;
+      font-weight: 600;
+      flex: 1;
+    }
+
+    /* ── Map ── */
     #map { flex: 1; width: 100%; }
-    .footer { padding: 16px; background: white; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 1000; }
-    button { width: 100%; padding: 14px; background: #0084ff; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; }
-    .center-marker { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%); z-index: 1000; pointer-events: none; font-size: 40px; margin-top: -10px; }
+
+    /* ── Centre crosshair ── */
+    #crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -100%);
+      z-index: 1000;
+      pointer-events: none;
+      font-size: 38px;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+      margin-top: -2px;   /* fine-tune tip alignment */
+    }
+
+    /* ── Footer action area ── */
+    #footer {
+      padding: 14px 16px;
+      background: white;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.12);
+      z-index: 1001;
+    }
+    #address-preview {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 10px;
+      min-height: 18px;
+      line-height: 1.4;
+    }
+    #address-preview span {
+      color: #0084ff;
+      font-weight: 600;
+    }
+    #action-btn {
+      width: 100%;
+      padding: 14px;
+      background: #0084ff;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      letter-spacing: 0.3px;
+    }
+    #action-btn:active { transform: scale(0.98); }
+    #action-btn:disabled {
+      background: #a0c4ff;
+      cursor: not-allowed;
+    }
+
+    /* ── Route summary strip ── */
+    #route-summary {
+      display: none;
+      background: #f8f9ff;
+      border-top: 1px solid #e0e7ff;
+      padding: 10px 16px;
+      font-size: 13px;
+      color: #333;
+    }
+    #route-summary.visible { display: block; }
+    .route-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 4px; }
+    .route-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .route-text { flex: 1; line-height: 1.4; }
+    .route-text b { color: #0084ff; }
+
+    /* ── Confirmation dialog ── */
+    #confirm-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+    }
+    #confirm-overlay.visible { display: flex; }
+    #confirm-box {
+      background: white;
+      border-radius: 18px;
+      padding: 28px 24px 24px;
+      width: calc(100% - 48px);
+      max-width: 360px;
+      text-align: center;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+      animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes popIn {
+      from { transform: scale(0.75); opacity: 0; }
+      to   { transform: scale(1);    opacity: 1; }
+    }
+    #confirm-box .emoji { font-size: 52px; line-height: 1; margin-bottom: 12px; }
+    #confirm-box h2 {
+      font-size: 20px; margin: 0 0 8px;
+      color: #1a1a2e;
+    }
+    #confirm-box p {
+      font-size: 14px; color: #555;
+      margin: 0 0 20px; line-height: 1.5;
+    }
+    #close-btn {
+      width: 100%;
+      padding: 14px;
+      background: #0084ff;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
-  <div id="map"></div>
-  <div class="center-marker">📍</div>
-  <div class="footer">
-    <button id="btn" onclick="submitLocation()">Confirm Location</button>
+
+  <!-- Step indicator header -->
+  <div id="header">
+    <div id="step-dots">
+      <div class="dot active" id="dot-1"></div>
+      <div class="dot" id="dot-2"></div>
+      <div class="dot" id="dot-3"></div>
+    </div>
+    <span id="step-label">📍 Pin your pickup location</span>
   </div>
+
+  <!-- Map fills remaining space -->
+  <div id="map"></div>
+
+  <!-- Centre pin emoji (changes with step) -->
+  <div id="crosshair">📍</div>
+
+  <!-- Route summary (visible after both pins set) -->
+  <div id="route-summary">
+    <div class="route-row">
+      <span class="route-icon">🟢</span>
+      <span class="route-text">Pickup: <b id="rs-pickup">—</b></span>
+    </div>
+    <div class="route-row">
+      <span class="route-icon">🔴</span>
+      <span class="route-text">Drop-off: <b id="rs-dest">—</b></span>
+    </div>
+  </div>
+
+  <!-- Footer with action button -->
+  <div id="footer">
+    <div id="address-preview">Move the map to position the pin</div>
+    <button id="action-btn" onclick="handleAction()">✅ Set Pickup</button>
+  </div>
+
+  <!-- Confirmation overlay (shown after submit) -->
+  <div id="confirm-overlay">
+    <div id="confirm-box">
+      <div class="emoji">🎉</div>
+      <h2>Route Confirmed!</h2>
+      <p>Your pickup and destination have been saved. You can now close this map and return to chat.</p>
+      <button id="close-btn" onclick="closeWebview()">Close Map</button>
+    </div>
+  </div>
+
   <script>
-    // 1. Initialize Messenger Extensions
-    (function(d, s, id){
+    // ── Bootstrap Messenger Extensions SDK ──────────────────────────────────
+    (function(d, s, id) {
       var js, fjs = d.getElementsByTagName(s)[0];
-      if (d.getElementById(id)) {return;}
+      if (d.getElementById(id)) return;
       js = d.createElement(s); js.id = id;
-      js.src = "//connect.facebook.net/en_US/messenger.Extensions.js";
+      js.src = '//connect.facebook.net/en_US/messenger.Extensions.js';
       fjs.parentNode.insertBefore(js, fjs);
     }(document, 'script', 'Messenger'));
 
-    // 2. Initialize Map (Default: Tanauan, Leyte)
-    const map = L.map('map').setView([11.1090, 125.0210], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    // ── State ───────────────────────────────────────────────────────────────
+    const WEBHOOK_URL =
+      'https://dwogrvalyrbubwsaunyo.supabase.co/functions/v1/fb-messenger-webhook?action=submit_location';
 
-    // Add Search Bar
+    const urlParams  = new URLSearchParams(window.location.search);
+    const psid       = urlParams.get('psid') || '';
+
+    let step = 1;  // 1 = awaiting pickup, 2 = awaiting destination, 3 = confirmed
+
+    let pickupLat, pickupLng, pickupAddr = '';
+    let destLat,   destLng,   destAddr   = '';
+
+    let pickupMarker = null;
+    let destMarker   = null;
+    let routeLine    = null;
+
+    // ── Map init ─────────────────────────────────────────────────────────────
+    const map = L.map('map', { zoomControl: true }).setView([11.1090, 125.0210], 14);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap',
+      maxZoom: 19,
+    }).addTo(map);
+
+    // Geocoder search bar
     L.Control.geocoder({
       defaultMarkGeocode: false,
-      placeholder: "Search address...",
-      collapsed: false // Force the search bar to stay open
+      placeholder: 'Search address…',
+      collapsed: false,
     }).on('markgeocode', function(e) {
-      map.setView(e.geocode.center, 16);
+      map.setView(e.geocode.center, 17);
     }).addTo(map);
-    
-    // Try to get user's real GPS location and center the map there
-    map.locate({setView: true, maxZoom: 16, enableHighAccuracy: true});
 
-    map.on('locationerror', function(e) {
-      console.warn("Could not get location:", e.message);
-      // Fails silently, leaves map in default Manila view
+    // Try GPS
+    map.locate({ setView: true, maxZoom: 16, enableHighAccuracy: true });
+    map.on('locationerror', () => {});
+
+    // Live address preview as map moves
+    let previewTimer = null;
+    map.on('move', () => {
+      if (step >= 3) return;
+      document.getElementById('address-preview').textContent = 'Getting address…';
+      clearTimeout(previewTimer);
+      previewTimer = setTimeout(updateAddressPreview, 600);
     });
 
-    // 3. Handle Submission
-    async function submitLocation() {
-      const center = map.getCenter();
-      const btn = document.getElementById('btn');
-      btn.innerText = "Saving...";
-      btn.disabled = true;
+    async function updateAddressPreview() {
+      const c = map.getCenter();
+      const addr = await reverseGeocode(c.lat, c.lng);
+      if (step === 1) {
+        document.getElementById('address-preview').innerHTML =
+          `Pickup: <span>${addr}</span>`;
+      } else if (step === 2) {
+        document.getElementById('address-preview').innerHTML =
+          `Drop-off: <span>${addr}</span>`;
+      }
+    }
 
-      // Extract PSID and Type from the URL Facebook opened
-      const urlParams = new URLSearchParams(window.location.search);
-      const psid = urlParams.get('psid');
-      const type = urlParams.get('type');
-      
-      // Send the data back to our Supabase Edge Function
-      const webhookUrl = 'https://dwogrvalyrbubwsaunyo.supabase.co/functions/v1/fb-messenger-webhook?action=submit_location';
+    // ── Icon helpers ─────────────────────────────────────────────────────────
+    function makeIcon(emoji, size = 32) {
+      return L.divIcon({
+        html: `<span style="font-size:${size}px;line-height:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.35))">${emoji}</span>`,
+        iconSize:   [size, size],
+        iconAnchor: [size / 2, size],
+        className:  '',
+      });
+    }
+
+    // ── Main action handler ──────────────────────────────────────────────────
+    async function handleAction() {
+      const btn = document.getElementById('action-btn');
+      if (btn.disabled) return;
+
+      if (step === 1) {
+        await confirmPickup();
+      } else if (step === 2) {
+        await confirmDestination();
+      } else if (step === 3) {
+        await submitRoute();
+      }
+    }
+
+    async function confirmPickup() {
+      const btn = document.getElementById('action-btn');
+      btn.disabled = true;
+      btn.textContent = 'Getting address…';
+
+      const c = map.getCenter();
+      pickupLat  = c.lat;
+      pickupLng  = c.lng;
+      pickupAddr = await reverseGeocode(c.lat, c.lng);
+
+      // Drop a green pickup marker
+      if (pickupMarker) map.removeLayer(pickupMarker);
+      pickupMarker = L.marker([pickupLat, pickupLng], { icon: makeIcon('🟢'), interactive: false })
+        .addTo(map)
+        .bindTooltip('Pickup', { permanent: true, direction: 'top', offset: [0, -28] })
+        .openTooltip();
+
+      // Advance to step 2
+      step = 2;
+      document.getElementById('crosshair').textContent = '🔴';
+      document.getElementById('step-label').textContent = '🔴 Pin your destination';
+      document.getElementById('dot-1').classList.remove('active');
+      document.getElementById('dot-2').classList.add('active');
+      document.getElementById('address-preview').innerHTML =
+        `Pickup set ✅ &nbsp;|&nbsp; Now pin your destination`;
+
+      btn.textContent = '✅ Set Destination';
+      btn.disabled = false;
+    }
+
+    async function confirmDestination() {
+      const btn = document.getElementById('action-btn');
+      btn.disabled = true;
+      btn.textContent = 'Getting address…';
+
+      const c = map.getCenter();
+      destLat  = c.lat;
+      destLng  = c.lng;
+      destAddr = await reverseGeocode(c.lat, c.lng);
+
+      // Drop a red destination marker
+      if (destMarker) map.removeLayer(destMarker);
+      destMarker = L.marker([destLat, destLng], { icon: makeIcon('🔴'), interactive: false })
+        .addTo(map)
+        .bindTooltip('Destination', { permanent: true, direction: 'top', offset: [0, -28] })
+        .openTooltip();
+
+      // Draw route line between the two points
+      if (routeLine) map.removeLayer(routeLine);
+      routeLine = L.polyline(
+        [[pickupLat, pickupLng], [destLat, destLng]],
+        { color: '#0084ff', weight: 4, dashArray: '8 6', opacity: 0.85 }
+      ).addTo(map);
+
+      // Fit map to show both markers
+      map.fitBounds(routeLine.getBounds(), { padding: [60, 60] });
+
+      // Hide crosshair (no more pinning needed)
+      document.getElementById('crosshair').style.display = 'none';
+
+      // Show route summary
+      document.getElementById('rs-pickup').textContent = shorten(pickupAddr);
+      document.getElementById('rs-dest').textContent   = shorten(destAddr);
+      document.getElementById('route-summary').classList.add('visible');
+
+      // Advance to step 3
+      step = 3;
+      document.getElementById('step-label').textContent = '🗺️ Review your route';
+      document.getElementById('dot-2').classList.remove('active');
+      document.getElementById('dot-3').classList.add('active');
+      document.getElementById('address-preview').textContent = 'Tap "Confirm Route" to proceed 👇';
+
+      btn.textContent = '🚗 Confirm Route';
+      btn.disabled = false;
+    }
+
+    async function submitRoute() {
+      const btn = document.getElementById('action-btn');
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
 
       try {
-        await fetch(webhookUrl, {
+        await fetch(WEBHOOK_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ psid, type, lat: center.lat, lng: center.lng })
+          body: JSON.stringify({
+            psid,
+            pickup_lat:  pickupLat,
+            pickup_lng:  pickupLng,
+            pickup_addr: pickupAddr,
+            dest_lat:    destLat,
+            dest_lng:    destLng,
+            dest_addr:   destAddr,
+          }),
         });
-        
-        // Close the webview and return to chat
-        if (typeof MessengerExtensions !== 'undefined') {
-          MessengerExtensions.requestCloseBrowser(function() {}, function() {
-            btn.innerText = "Saved! You can close this window.";
-          });
-        } else {
-          btn.innerText = "Saved! You can close this window.";
-        }
+
+        // Show the success dialog
+        document.getElementById('confirm-overlay').classList.add('visible');
+
       } catch (e) {
-        btn.innerText = "Error. Try again.";
+        btn.textContent = '⚠️ Error — Try Again';
         btn.disabled = false;
       }
     }
+
+    function closeWebview() {
+      if (typeof MessengerExtensions !== 'undefined') {
+        MessengerExtensions.requestCloseBrowser(
+          function() {},
+          function() {
+            document.getElementById('confirm-box').querySelector('p').textContent =
+              'Route saved! You can safely close this window and return to Messenger.';
+            document.getElementById('close-btn').style.display = 'none';
+          }
+        );
+      } else {
+        // Fallback: just show message
+        document.getElementById('confirm-box').querySelector('p').textContent =
+          'Route saved! You can safely close this window and return to Messenger.';
+        document.getElementById('close-btn').style.display = 'none';
+      }
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    async function reverseGeocode(lat, lng) {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+          { headers: { 'Accept-Language': 'en', 'User-Agent': 'HatidSundo/1.0' } }
+        );
+        if (res.ok) {
+          const d = await res.json();
+          return d.display_name ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        }
+      } catch (_) {}
+      return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    }
+
+    function shorten(addr, maxLen = 55) {
+      return addr.length > maxLen ? addr.substring(0, maxLen) + '…' : addr;
+    }
+
+    // Initial preview
+    updateAddressPreview();
   </script>
 </body>
 </html>
