@@ -29,6 +29,7 @@ const PAGE_ACCESS_TOKEN = Deno.env.get("FB_PAGE_ACCESS_TOKEN") ?? "";
 const FB_APP_ID = Deno.env.get("FB_APP_ID") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const PRIVACY_POLICY_URL = Deno.env.get("PRIVACY_POLICY_URL") ?? "https://your-site.com/privacy.html";
 
 // Graph API base URL
 const GRAPH_API = "https://graph.facebook.com/v19.0";
@@ -369,11 +370,29 @@ async function sendWelcomeMessage(psid: string) {
   const user = await getFbUser(psid);
   const name = user?.first_name ?? "there";
 
+  // 1. Greeting with privacy policy link button
   await sendMessage(psid, {
-    text: `👋 Hi ${name}! Welcome to Hatid Sundo — your reliable ride service!\n\nI can help you book a ride, check your current status, or connect you with our team. What would you like to do?`,
+    attachment: {
+      type: "template",
+      payload: {
+        template_type: "button",
+        text: `👋 Hi ${name}! Welcome to Hatid Sundo — your reliable ride service!\n\nBy continuing, you agree to our Privacy Policy. Please take a moment to review it before getting started.`,
+        buttons: [
+          {
+            type: "web_url",
+            url: PRIVACY_POLICY_URL,
+            title: "📋 Privacy Policy",
+            webview_height_ratio: "tall",
+          },
+        ],
+      },
+    },
   });
+
+  // 2. Main menu
   await sendMainMenu(psid);
 }
+
 
 async function sendMainMenu(psid: string, intro?: string) {
   if (intro) {
@@ -714,14 +733,16 @@ function estimateFare(vehicleType: string, distanceKm: number): number {
     perKmRate = 8.0;
   }
 
-  // Night rate multiplier
-  const hour = new Date().getHours();
+  // Night rate multiplier (calculated using Philippine Time UTC+8)
+  const utcHour = new Date().getUTCHours();
+  const phtHour = (utcHour + 8) % 24;
   const nightStartHour = 21;
   const nightEndHour = 5;
-  const isNight = hour >= nightStartHour || hour < nightEndHour;
+  const isNight = phtHour >= nightStartHour || phtHour < nightEndHour;
   const nightMultiplier = isNight ? 1.2 : 1.0;
 
-  return baseFare + (distanceKm * perKmRate * nightMultiplier);
+  // Match app logic: base + (floor(destKm) * rate * nightMultiplier)
+  return baseFare + (Math.floor(distanceKm) * perKmRate * nightMultiplier);
 }
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -786,9 +807,32 @@ async function checkStatus(psid: string) {
     let statusDetails = `🛺 Your Current Ride\n\n`;
     statusDetails += `🆔 #${trip.id.substring(0, 8).toUpperCase()}\n`;
     statusDetails += `📌 Status: ${statusLabel}\n`;
+
+    if (trip.rider_id) {
+      try {
+        const supabase = getSupabase();
+        const { data: profile } = await supabase.from('rider_profiles').select('vehicle_color, vehicle_make, vehicle_model, plate_number').eq('user_id', trip.rider_id).maybeSingle();
+        const { data: user } = await supabase.from('users').select('name').eq('id', trip.rider_id).maybeSingle();
+
+        if (user && profile) {
+          const driverName = user.name ?? 'Your driver';
+          const vehicle = `${profile.vehicle_color || ''} ${profile.vehicle_make || ''} ${profile.vehicle_model || ''}`.trim();
+          const plate = profile.plate_number || '';
+          
+          if (vehicle || plate) {
+             statusDetails += `👤 Driver: ${driverName}\n🚘 Vehicle: ${vehicle} (${plate})\n`;
+          } else {
+             statusDetails += `👤 Driver: ${driverName}\n`;
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch driver info for status:", e);
+      }
+    }
+
     statusDetails += `📍 From: ${trip.pickup_address ?? "N/A"}\n`;
     statusDetails += `🏁 To: ${trip.dest_address ?? "N/A"}\n`;
-    statusDetails += `${vehicleEmoji} Vehicle: ${(trip.vehicle_type ?? "motorcycle").charAt(0).toUpperCase() + (trip.vehicle_type ?? "motorcycle").slice(1)}\n`;
+    statusDetails += `${vehicleEmoji} Type: ${(trip.vehicle_type ?? "motorcycle").charAt(0).toUpperCase() + (trip.vehicle_type ?? "motorcycle").slice(1)}\n`;
     statusDetails += `💰 Est. Fare: ₱${Number(fare).toFixed(0)}`;
 
     const buttons: any[] = [

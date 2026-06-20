@@ -50,9 +50,36 @@ serve(async (req) => {
       const PAGE_ACCESS_TOKEN = Deno.env.get("FB_PAGE_ACCESS_TOKEN") ?? "";
       const GRAPH_API = "https://graph.facebook.com/v19.0";
       
+      let finalBody = notifBody;
+
+      // If a driver was assigned, intercept and append driver info dynamically on the backend
+      if (data.type === 'driver_assigned' && data.trip_id) {
+        try {
+          const { data: trip } = await supabaseClient.from('trips').select('rider_id').eq('id', data.trip_id).maybeSingle();
+          if (trip && trip.rider_id) {
+            const { data: profile } = await supabaseClient.from('rider_profiles').select('vehicle_color, vehicle_make, vehicle_model, plate_number').eq('user_id', trip.rider_id).maybeSingle();
+            const { data: user } = await supabaseClient.from('users').select('name').eq('id', trip.rider_id).maybeSingle();
+
+            if (user && profile) {
+              const driverName = user.name ?? 'Your driver';
+              const vehicle = `${profile.vehicle_color || ''} ${profile.vehicle_make || ''} ${profile.vehicle_model || ''}`.trim();
+              const plate = profile.plate_number || '';
+              
+              if (vehicle || plate) {
+                finalBody += `\n\nDriver: ${driverName}\nVehicle: ${vehicle}\nPlate: ${plate}`;
+              } else {
+                finalBody += `\n\nDriver: ${driverName}`;
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Error fetching driver info in webhook:", e);
+        }
+      }
+
       const payload = {
         recipient: { id: fbUser.psid },
-        message: { text: `🔔 ${title}\n${notifBody}` }
+        message: { text: `🔔 ${title}\n${finalBody}` }
       };
 
       const res = await fetch(`${GRAPH_API}/me/messages?access_token=${PAGE_ACCESS_TOKEN}`, {

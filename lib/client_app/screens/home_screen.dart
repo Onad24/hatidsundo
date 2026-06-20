@@ -8,6 +8,8 @@ import '../../core/router.dart';
 import '../../state/state.dart';
 import '../../services/update_service.dart';
 import '../../widgets/map_widget.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'privacy_policy_screen.dart';
 
 /// Client home screen with map and nearby drivers
 class ClientHomeScreen extends ConsumerStatefulWidget {
@@ -24,11 +26,57 @@ class _ClientHomeScreenState extends ConsumerState<ClientHomeScreen> {
   void initState() {
     super.initState();
     _loadCurrentLocation();
-    
-    // Check for app updates
+
+    // Check for app updates and show privacy policy
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkForUpdate();
+      _checkPrivacyPolicy();
     });
+  }
+
+  Future<void> _checkPrivacyPolicy() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenPrivacy = prefs.getBool('has_seen_privacy_policy') ?? false;
+
+    if (!hasSeenPrivacy && mounted) {
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text(
+            'Privacy Policy',
+            style: TextStyle(fontFamily: 'Outfit', fontWeight: FontWeight.bold),
+          ),
+          content: const Text(
+            'We value your privacy. Please take a moment to read our Privacy Policy to understand how we collect, use, and protect your data.',
+            style: TextStyle(fontFamily: 'Outfit'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const PrivacyPolicyScreen(),
+                  ),
+                );
+              },
+              child: const Text('Read Policy'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('I Agree'),
+            ),
+          ],
+        ),
+      );
+      await prefs.setBool('has_seen_privacy_policy', true);
+    }
   }
 
   Future<void> _checkForUpdate() async {
@@ -241,7 +289,7 @@ class _ClientHomeScreenState extends ConsumerState<ClientHomeScreen> {
                         builder: (context) => AlertDialog(
                           title: const Text('Help & Support'),
                           content: const Text(
-                            'For assistance, please contact support at:\n\nsupport@hatidsundo.com',
+                            'For assistance, please contact support at:\n\nhatidsundo.tanauan@gmail.com',
                           ),
                           actions: [
                             TextButton(

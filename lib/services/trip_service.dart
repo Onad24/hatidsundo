@@ -165,13 +165,19 @@ class TripService {
     try {
       final profileResult = await _supabaseService.client
           .from('rider_profiles')
-          .select('vehicle_color, vehicle_make, vehicle_model, plate_number, users(name, phone)')
+          .select('vehicle_color, vehicle_make, vehicle_model, plate_number')
           .eq('user_id', riderId)
           .maybeSingle();
 
+      final userResult = await _supabaseService.client
+          .from('users')
+          .select('name, phone')
+          .eq('id', riderId)
+          .maybeSingle();
+
+      final name = userResult?['name'] ?? 'Your driver';
+      
       if (profileResult != null) {
-        final users = profileResult['users'] as Map<String, dynamic>?;
-        final name = users?['name'] ?? 'Your driver';
         final vehicleColor = profileResult['vehicle_color'] ?? '';
         final vehicleMake = profileResult['vehicle_make'] ?? '';
         final vehicleModel = profileResult['vehicle_model'] ?? '';
@@ -183,9 +189,12 @@ class TripService {
         } else {
           driverInfo = '\n\nDriver: $name';
         }
+      } else {
+        driverInfo = '\n\nDriver: $name';
       }
     } catch (e) {
       print('DEBUG fetching driver info failed: $e');
+      driverInfo = '\n\n[Error fetching info: $e]';
     }
 
     // Notify client that a driver was assigned
