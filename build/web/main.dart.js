@@ -117403,16 +117403,17 @@ $1(a){var s=null,r=a.bl($.oe(),t.xN),q=$.bun(),p=A.b([A.eg(new A.b9K(),"/marketi
 return A.byQ(!1,s,s,s,s,"/",q,s,s,!1,s,!0,s,!1,new A.a9t(new A.aJX(p,new A.ba5(r),5)))},
 $S:759}
 A.ba5.prototype={
-$2(a,b){var s,r,q,p,o=this.a
-if(o.gmz())return null
-s=A.lJ(o)==null
+$2(a,b){var s,r,q,p,o="/marketing",n=this.a
+if(n.gmz())return null
+s=A.lJ(n)==null
 r=b.c
 q=r==="/login"||r==="/"||r==="/onboarding"
-if(s&&!q&&r!=="/marketing")return"/login"
-if(!s&&q&&r!=="/onboarding"){p=A.lJ(o)
-if(p!=null){o=p.c
-if(o===B.qS)return"/role_selection"
-return A.bHR(o)}}return null},
+if(r==="/"&&s)return o
+if(s&&!q&&r!=="/marketing")return o
+if(!s&&q&&r!=="/onboarding"){p=A.lJ(n)
+if(p!=null){n=p.c
+if(n===B.qS)return"/role_selection"
+return A.bHR(n)}}return null},
 $S:760}
 A.b9K.prototype={
 $2(a,b){return B.a65},
@@ -121389,7 +121390,7 @@ case 2:s="/admin"
 break
 case 3:s="/role_selection"
 break
-default:s=null}A.c4(r).ek(0,s,null)}else A.c4(r).ek(0,"/login",null)},
+default:s=null}A.c4(r).ek(0,s,null)}else A.c4(r).ek(0,"/marketing",null)},
 $S:852}
 A.b3X.prototype={
 $0(){A.qF(B.e_,new A.b3U(this.a),t.a)},

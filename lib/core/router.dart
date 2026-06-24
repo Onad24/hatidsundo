@@ -116,9 +116,16 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       final isPublicRoute = currentPath == Routes.marketing;
 
+      // Web specific: Redirect from splash to marketing if not logged in
+      if (kIsWeb && currentPath == Routes.splash && !isLoggedIn) {
+        return Routes.marketing;
+      }
+
       // Not logged in and trying to access protected route
       if (!isLoggedIn && !isAuthRoute && !isPublicRoute) {
-        return Routes.login;
+        // On web, redirecting to marketing is better for unauthorized access,
+        // but login is fine too. Let's redirect to marketing on web, login on mobile.
+        return kIsWeb ? Routes.marketing : Routes.login;
       }
 
       // Logged in on auth route - redirect to appropriate home

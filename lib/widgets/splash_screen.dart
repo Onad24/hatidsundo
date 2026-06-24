@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -69,8 +70,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
           };
           context.go(route);
         } else {
-          // Not logged in - go to login
-          context.go(Routes.login);
+          // Not logged in - go to login (or marketing on web)
+          context.go(kIsWeb ? Routes.marketing : Routes.login);
         }
       },
       loading: () {
