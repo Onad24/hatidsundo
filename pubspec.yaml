@@ -1,7 +1,7 @@
 name: hatid_sundo
 description: "Ride hailing application - Client, Rider, and Admin"
 publish_to: "none"
-version: 1.0.7+8
+version: 1.1.8+9
 
 environment:
   sdk: ^3.11.0-200.1.beta

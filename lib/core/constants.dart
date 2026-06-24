@@ -4,7 +4,7 @@ class AppConstants {
 
   // App Info
   static const String appName = 'Hatid Sundo';
-  static const String appVersion = '1.0.7';
+  static const String appVersion = '1.1.8';
 
   // Supabase Tables
   static const String usersTable = 'users';
