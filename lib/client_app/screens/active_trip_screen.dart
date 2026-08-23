@@ -51,7 +51,6 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
            trip.status == TripStatus.inProgress)) {
         _startClientTracking(trip.id, trip.clientId);
       }
-      _initializeTracking();
     });
   }
 
@@ -404,85 +403,101 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
     switch (trip.status) {
       case TripStatus.pending:
       case TripStatus.offered:
-        statusText = 'Finding your driver';
-        statusSubtext = 'Please wait while we find a driver near you';
+        statusText = 'Finding your driver...';
+        statusSubtext = 'Connecting with the closest available rider in Batangas';
         statusColor = AppTheme.warningColor;
-        statusIcon = Icons.search_rounded;
+        statusIcon = Icons.radar_rounded;
         break;
       case TripStatus.accepted:
-        statusText = 'Driver assigned!';
-        statusSubtext = 'Your driver is on the way to pick you up';
+        statusText = 'Driver Assigned!';
+        statusSubtext = 'Your driver is heading to your pickup point';
         statusColor = AppTheme.primaryColor;
-        statusIcon = Icons.local_taxi_rounded;
+        statusIcon = Icons.directions_car_filled_rounded;
         break;
       case TripStatus.driverArriving:
-        statusText = 'Driver is arriving';
-        statusSubtext = 'Your driver is almost at the pickup location';
+        statusText = 'Driver Arrived';
+        statusSubtext = 'Your driver is now at your pickup spot';
         statusColor = AppTheme.secondaryColor;
         statusIcon = Icons.pin_drop_rounded;
         break;
       case TripStatus.inProgress:
-        statusText = 'On the way';
-        statusSubtext = 'Heading to your destination';
+        statusText = 'Trip in Progress';
+        statusSubtext = 'Heading safely to your destination';
         statusColor = AppTheme.successColor;
-        statusIcon = Icons.directions_car_rounded;
+        statusIcon = Icons.navigation_rounded;
         break;
       case TripStatus.completed:
-        statusText = 'Trip completed';
-        statusSubtext = 'Thank you for riding with us!';
+        statusText = 'Trip Completed';
+        statusSubtext = 'Thank you for riding with Hatid Sundo!';
         statusColor = AppTheme.successColor;
         statusIcon = Icons.check_circle_rounded;
         break;
       case TripStatus.cancelled:
-        statusText = 'Trip cancelled';
+        statusText = 'Trip Cancelled';
         statusSubtext = trip.cancellationReason ?? 'This trip was cancelled';
         statusColor = AppTheme.errorColor;
         statusIcon = Icons.cancel_rounded;
         break;
     }
 
-    return Row(
-      children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: statusColor.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(statusIcon, color: statusColor),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                statusText,
-                style: TextStyle(
-                  fontFamily: 'Outfit',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: statusColor,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: statusColor.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: statusColor.withValues(alpha: 0.2), width: 1.2),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: statusColor,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: statusColor.withValues(alpha: 0.35),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
                 ),
-              ),
-              Text(
-                statusSubtext,
-                style: const TextStyle(
-                  fontFamily: 'Outfit',
-                  fontSize: 13,
-                  color: AppTheme.neutral500,
-                ),
-              ),
-            ],
+              ],
+            ),
+            child: Icon(statusIcon, color: Colors.white, size: 24),
           ),
-        ),
-      ],
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  statusText,
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: statusColor,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  statusSubtext,
+                  style: const TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: AppTheme.neutral600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildDriverInfo(TripModel trip) {
-    // If future hasn't been set yet, fetch now (safety net)
     if (_driverInfoFuture == null && trip.riderId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _fetchDriverInfo(trip.riderId!);
@@ -492,92 +507,146 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
     return FutureBuilder<Map<String, dynamic>?>(
       future: _driverInfoFuture,
       builder: (context, snapshot) {
-        // Still waiting on the future
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               color: AppTheme.neutral100,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
             ),
             child: const Center(
               child: SizedBox(
-                width: 24,
-                height: 24,
+                width: 22,
+                height: 22,
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             ),
           );
         }
 
-        // Data came back (possibly null if RLS blocked it)
         final driver = snapshot.data;
 
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppTheme.neutral100,
-            borderRadius: BorderRadius.circular(16),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppTheme.neutral200),
+            boxShadow: AppTheme.cardShadow,
           ),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 28,
-                backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.2),
-                backgroundImage: driver?['avatar_url'] != null
-                    ? NetworkImage(driver!['avatar_url'])
-                    : null,
-                child: driver?['avatar_url'] == null
-                    ? const Icon(Icons.person, color: AppTheme.primaryColor)
-                    : null,
+              // Driver Avatar with verified badge
+              Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                    backgroundImage: driver?['avatar_url'] != null
+                        ? NetworkImage(driver!['avatar_url'])
+                        : null,
+                    child: driver?['avatar_url'] == null
+                        ? const Icon(Icons.person_rounded, color: AppTheme.primaryColor, size: 30)
+                        : null,
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.check_circle_rounded,
+                        color: AppTheme.successColor,
+                        size: 16,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
+
+              // Driver Name, Vehicle, Rating
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      driver?['name'] ?? 'Your Driver',
-                      style: const TextStyle(
-                        fontFamily: 'Outfit',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
                     Row(
                       children: [
-                        const Icon(
-                          Icons.star_rounded,
-                          color: AppTheme.warningColor,
-                          size: 16,
+                        Text(
+                          driver?['name'] ?? 'Assigned Driver',
+                          style: const TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.neutral900,
+                          ),
                         ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            driver != null
-                                ? '${driver['rating']} • ${driver['vehicle']}'
-                                : 'Driver assigned',
-                            style: const TextStyle(
-                              fontFamily: 'Outfit',
-                              fontSize: 12,
-                              color: AppTheme.neutral500,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.warningColor.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.star_rounded, size: 13, color: AppTheme.warningColor),
+                              const SizedBox(width: 2),
+                              Text(
+                                '${driver?['rating'] ?? '5.0'}',
+                                style: const TextStyle(
+                                  fontFamily: 'Outfit',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.warningColor,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      driver?['vehicle'] ?? 'Verified Vehicle',
+                      style: const TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.neutral600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ),
-              // Chat button
-              IconButton(
-                icon: const Icon(Icons.chat_rounded),
-                color: AppTheme.primaryColor,
-                onPressed: () {
-                  context.push('/client/trip/${trip.id}/chat');
-                },
+
+              // Chat Action Button
+              Container(
+                decoration: BoxDecoration(
+                  gradient: AppTheme.primaryGradient,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.chat_bubble_rounded, size: 18),
+                  color: Colors.white,
+                  onPressed: () {
+                    context.push('/client/trip/${trip.id}/chat');
+                  },
+                ),
               ),
             ],
           ),
@@ -587,95 +656,108 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
   }
 
   Widget _buildLocationInfo(TripModel trip) {
-    return Column(
-      children: [
-        // Pickup
-        Row(
-          children: [
-            Container(
-              width: 12,
-              height: 12,
-              decoration: const BoxDecoration(
-                color: AppTheme.successColor,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Pickup',
-                    style: TextStyle(
-                      fontFamily: 'Outfit',
-                      fontSize: 12,
-                      color: AppTheme.neutral500,
-                    ),
-                  ),
-                  Text(
-                    trip.pickupAddress ?? 'Pickup location',
-                    style: const TextStyle(
-                      fontFamily: 'Outfit',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-
-        // Connector
-        Padding(
-          padding: const EdgeInsets.only(left: 5),
-          child: Row(
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.neutral100,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppTheme.neutral200.withValues(alpha: 0.8)),
+      ),
+      child: Column(
+        children: [
+          // Pickup
+          Row(
             children: [
-              Container(width: 2, height: 24, color: AppTheme.neutral300),
+              Container(
+                width: 10,
+                height: 10,
+                decoration: const BoxDecoration(
+                  color: AppTheme.successColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'PICKUP',
+                      style: TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.neutral400,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    Text(
+                      trip.pickupAddress ?? 'Pickup location',
+                      style: const TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.neutral800,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
-        ),
 
-        // Destination
-        Row(
-          children: [
-            const Icon(
-              Icons.location_on_rounded,
-              color: AppTheme.errorColor,
-              size: 16,
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 4, bottom: 4),
+            child: Row(
+              children: [
+                Container(width: 2, height: 18, color: AppTheme.neutral300),
+              ],
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Destination',
-                    style: TextStyle(
-                      fontFamily: 'Outfit',
-                      fontSize: 12,
-                      color: AppTheme.neutral500,
-                    ),
-                  ),
-                  Text(
-                    trip.destAddress ?? 'Destination',
-                    style: const TextStyle(
-                      fontFamily: 'Outfit',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+          ),
+
+          // Destination
+          Row(
+            children: [
+              const Icon(
+                Icons.location_on_rounded,
+                color: AppTheme.errorColor,
+                size: 14,
               ),
-            ),
-          ],
-        ),
-      ],
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'DESTINATION',
+                      style: TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.neutral400,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    Text(
+                      trip.destAddress ?? 'Destination',
+                      style: const TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.neutral800,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

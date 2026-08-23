@@ -44,6 +44,7 @@ import '../widgets/role_selection_screen.dart';
 
 // Marketing Web Screen
 import '../marketing_web/screens/marketing_screen.dart';
+import '../client_app/screens/privacy_policy_screen.dart';
 
 /// Route names
 class Routes {
@@ -55,8 +56,9 @@ class Routes {
   static const String onboarding = '/onboarding';
   static const String roleSelection = '/role_selection';
 
-  // Marketing Route
+  // Marketing & Public Routes
   static const String marketing = '/marketing';
+  static const String privacyPolicy = '/privacy-policy';
 
   // Client Routes
   static const String clientHome = '/client';
@@ -114,7 +116,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           currentPath == Routes.splash ||
           currentPath == Routes.onboarding;
 
-      final isPublicRoute = currentPath == Routes.marketing;
+      final isPublicRoute =
+          currentPath == Routes.marketing ||
+          currentPath == Routes.privacyPolicy;
 
       // Web specific: Redirect from splash to marketing if not logged in
       if (kIsWeb && currentPath == Routes.splash && !isLoggedIn) {
@@ -142,10 +146,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      // Marketing Route
+      // Marketing & Public Routes
       GoRoute(
         path: Routes.marketing,
         builder: (context, state) => const MarketingScreen(),
+      ),
+      GoRoute(
+        path: Routes.privacyPolicy,
+        builder: (context, state) => const PrivacyPolicyScreen(),
       ),
       // Auth Routes
       GoRoute(

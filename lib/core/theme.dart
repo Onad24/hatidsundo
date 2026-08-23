@@ -4,85 +4,126 @@ import 'package:flutter/material.dart';
 class AppTheme {
   AppTheme._();
 
-  // Brand Colors
-  static const Color primaryColor = Color(0xFF4F46E5); // Indigo
-  static const Color primaryLight = Color(0xFF818CF8);
-  static const Color primaryDark = Color(0xFF3730A3);
+  // Brand Colors - Royal Electric Indigo & Emerald Glow
+  static const Color primaryColor = Color(0xFF4F46E5); // Electric Indigo
+  static const Color primaryLight = Color(0xFF6366F1); // Vibrant Indigo
+  static const Color primaryDark = Color(0xFF3730A3);  // Deep Royal Indigo
 
-  static const Color secondaryColor = Color(0xFF06B6D4); // Cyan
-  static const Color secondaryLight = Color(0xFF67E8F9);
-  static const Color secondaryDark = Color(0xFF0891B2);
+  static const Color secondaryColor = Color(0xFF06B6D4); // Electric Cyan
+  static const Color secondaryLight = Color(0xFF38BDF8); // Sky Cyan
+  static const Color secondaryDark = Color(0xFF0891B2);  // Deep Cyan
 
-  static const Color successColor = Color(0xFF10B981);
-  static const Color warningColor = Color(0xFFF59E0B);
-  static const Color errorColor = Color(0xFFEF4444);
-  static const Color infoColor = Color(0xFF3B82F6);
+  static const Color successColor = Color(0xFF10B981); // Emerald Glow
+  static const Color successDark = Color(0xFF059669);
+  static const Color warningColor = Color(0xFFF59E0B); // Warm Amber
+  static const Color errorColor = Color(0xFFEF4444);   // Coral Red
+  static const Color infoColor = Color(0xFF3B82F6);    // Dodger Blue
 
-  // Neutral Colors
-  static const Color neutral50 = Color(0xFFFAFAFA);
-  static const Color neutral100 = Color(0xFFF5F5F5);
-  static const Color neutral200 = Color(0xFFE5E5E5);
-  static const Color neutral300 = Color(0xFFD4D4D4);
-  static const Color neutral400 = Color(0xFFA3A3A3);
-  static const Color neutral500 = Color(0xFF737373);
-  static const Color neutral600 = Color(0xFF525252);
-  static const Color neutral700 = Color(0xFF404040);
-  static const Color neutral800 = Color(0xFF262626);
-  static const Color neutral900 = Color(0xFF171717);
+  // Neutral Colors - Premium Slate & Pearl Scale
+  static const Color neutral50 = Color(0xFFF8FAFC);  // Soft Slate Canvas
+  static const Color neutral100 = Color(0xFFF1F5F9); // Light Gray Surface
+  static const Color neutral200 = Color(0xFFE2E8F0); // Subtle Border
+  static const Color neutral300 = Color(0xFFCBD5E1); // Muted Border
+  static const Color neutral400 = Color(0xFF94A3B8); // Caption Text
+  static const Color neutral500 = Color(0xFF64748B); // Secondary Text
+  static const Color neutral600 = Color(0xFF475569); // Medium Text
+  static const Color neutral700 = Color(0xFF334155); // Dark Body Text
+  static const Color neutral800 = Color(0xFF1E293B); // Slate Dark
+  static const Color neutral900 = Color(0xFF0F172A); // High Contrast Dark
+  static const Color darkCanvas = Color(0xFF0B0F19); // Ultra Dark Canvas
 
   // Gradients
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [primaryColor, primaryDark],
+    colors: [Color(0xFF6366F1), Color(0xFF4338CA)],
+  );
+
+  static const LinearGradient emeraldGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF34D399), Color(0xFF059669)],
   );
 
   static const LinearGradient accentGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [secondaryColor, primaryColor],
+    colors: [Color(0xFF06B6D4), Color(0xFF4F46E5)],
+  );
+
+  static const LinearGradient glowGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0x206366F1), Color(0x006366F1)],
   );
 
   static const LinearGradient surfaceGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0xFFF8FAFC), Color(0xFFE2E8F0)],
+    colors: [Color(0xFFF8FAFC), Color(0xFFEEF2F6)],
   );
 
-  // Shadows
+  static const LinearGradient darkCardGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+  );
+
+  // Multi-layer Diffuse Shadows
   static List<BoxShadow> get cardShadow => [
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.04),
-      blurRadius: 8,
+      color: Colors.black.withValues(alpha: 0.03),
+      blurRadius: 6,
       offset: const Offset(0, 2),
     ),
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.06),
-      blurRadius: 24,
-      offset: const Offset(0, 8),
+      color: Colors.black.withValues(alpha: 0.05),
+      blurRadius: 16,
+      offset: const Offset(0, 6),
     ),
   ];
 
   static List<BoxShadow> get elevatedShadow => [
     BoxShadow(
-      color: primaryColor.withValues(alpha: 0.15),
-      blurRadius: 16,
-      offset: const Offset(0, 4),
+      color: primaryColor.withValues(alpha: 0.20),
+      blurRadius: 20,
+      offset: const Offset(0, 8),
     ),
     BoxShadow(
+      color: Colors.black.withValues(alpha: 0.06),
+      blurRadius: 28,
+      offset: const Offset(0, 10),
+    ),
+  ];
+
+  static List<BoxShadow> get floatingShadow => [
+    BoxShadow(
       color: Colors.black.withValues(alpha: 0.08),
-      blurRadius: 32,
-      offset: const Offset(0, 12),
+      blurRadius: 24,
+      offset: const Offset(0, 8),
+    ),
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.04),
+      blurRadius: 8,
+      offset: const Offset(0, 2),
+    ),
+  ];
+
+  static List<BoxShadow> get emeraldGlowShadow => [
+    BoxShadow(
+      color: successColor.withValues(alpha: 0.35),
+      blurRadius: 16,
+      offset: const Offset(0, 4),
     ),
   ];
 
   // Border Radius
-  static const double radiusXs = 4.0;
-  static const double radiusSm = 8.0;
-  static const double radiusMd = 12.0;
-  static const double radiusLg = 16.0;
-  static const double radiusXl = 24.0;
-  static const double radiusFull = 9999.0;
+  static const double radiusXs = 6.0;
+  static const double radiusSm = 10.0;
+  static const double radiusMd = 14.0;
+  static const double radiusLg = 20.0;
+  static const double radiusXl = 28.0;
+  static const double radiusFull = 999.0;
 
   // Spacing
   static const double spacingXs = 4.0;
@@ -91,6 +132,36 @@ class AppTheme {
   static const double spacingLg = 24.0;
   static const double spacingXl = 32.0;
   static const double spacing2xl = 48.0;
+
+  /// Modern floating card decoration with multi-layer shadow and subtle border
+  static BoxDecoration cardDecoration({
+    Color color = Colors.white,
+    double radius = radiusLg,
+    Border? border,
+    List<BoxShadow>? shadows,
+  }) {
+    return BoxDecoration(
+      color: color,
+      borderRadius: BorderRadius.circular(radius),
+      border: border ?? Border.all(color: neutral200.withValues(alpha: 0.6), width: 1),
+      boxShadow: shadows ?? cardShadow,
+    );
+  }
+
+  /// Frosted glass style card decoration
+  static BoxDecoration glassDecoration({
+    double opacity = 0.85,
+    double radius = radiusLg,
+    Color tint = Colors.white,
+    Border? border,
+  }) {
+    return BoxDecoration(
+      color: tint.withValues(alpha: opacity),
+      borderRadius: BorderRadius.circular(radius),
+      border: border ?? Border.all(color: Colors.white.withValues(alpha: 0.6), width: 1.5),
+      boxShadow: floatingShadow,
+    );
+  }
 
   // Light Theme
   static ThemeData get lightTheme {

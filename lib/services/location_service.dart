@@ -4,6 +4,7 @@ import 'dart:collection';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/constants.dart';
 import '../models/driver_location_model.dart';
@@ -13,22 +14,27 @@ import 'supabase_service.dart';
 class LocationService {
   final SupabaseService _supabaseService;
 
-  // Common state
-  bool _isTracking = false;
-
   // Driver tracking state
+  bool _isDriverTracking = false;
   StreamSubscription<Position>? _driverPositionSubscription;
   Timer? _driverBatchTimer;
   final Queue<LocationUpdate> _driverLocationBuffer = Queue<LocationUpdate>();
-  
+
   // Client tracking state
+  bool _isClientTracking = false;
   StreamSubscription<Position>? _clientPositionSubscription;
   Timer? _clientBatchTimer;
   final Queue<LocationUpdate> _clientLocationBuffer = Queue<LocationUpdate>();
 
+  // Driver location broadcast channel (reused across flushes)
+  RealtimeChannel? _driverBroadcastChannel;
+
+  // Cached driver location subscription channel (reused, unsubscribed on new call)
+  RealtimeChannel? _driverLocationChannel;
+
   LocationService(this._supabaseService);
 
-  bool get isTracking => _isTracking;
+  bool get isTracking => _isDriverTracking || _isClientTracking;
 
   /// Check and request location permissions
   Future<bool> checkPermissions() async {
@@ -74,32 +80,33 @@ class LocationService {
   // Client Tracking Methods
   // =========================================================================
 
-  /// Start tracking for a client during an active trip
+  /// Start tracking for a client during an active trip.
+  /// Independent of driver tracking — uses its own flag.
   Future<void> startClientTracking({
     required String clientId,
     required String tripId,
   }) async {
-    if (_isTracking) return;
+    if (_isClientTracking) return;
 
     final hasPermission = await checkPermissions();
     if (!hasPermission) {
       throw Exception('Location permission not granted');
     }
 
-    _isTracking = true;
+    _isClientTracking = true;
 
-    // Start position stream for client (1 minute intervals)
+    // Start position stream for client
     _clientPositionSubscription =
         Geolocator.getPositionStream(
           locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.high,
-            distanceFilter: 10, // Only if moved 10 meters
+            distanceFilter: 10, // Only update if moved 10 meters
           ),
         ).listen((position) {
           _onClientPositionUpdate(position);
         });
 
-    // We can use a 1-minute batch timer to flush
+    // Flush buffered position to server every 1 minute
     _clientBatchTimer = Timer.periodic(
       const Duration(minutes: 1),
       (_) => _flushClientLocationBuffer(clientId, tripId),
@@ -121,7 +128,8 @@ class LocationService {
     }
   }
 
-  /// Flush client location buffer and send to server
+  /// Flush client location buffer and send to server.
+  /// Uses upsert (keyed on client_id) to avoid unbounded row growth.
   Future<void> _flushClientLocationBuffer(String clientId, String tripId) async {
     if (_clientLocationBuffer.isEmpty) return;
 
@@ -139,19 +147,15 @@ class LocationService {
         'updated_at': latest.timestamp.toIso8601String(),
       };
 
-      print(
-        'DEBUG: Sending client location update for trip $tripId: Lat=${latest.lat}, Lng=${latest.lng}',
-      );
+      debugPrint('Sending client location update for trip $tripId: Lat=${latest.lat}, Lng=${latest.lng}');
 
+      // Upsert so only one row per client is kept (prevents unbounded growth)
       await _supabaseService
           .from('client_locations')
-          .insert(payload); // We insert a new record for tracking history
-
+          .upsert(payload, onConflict: 'client_id');
     } catch (e) {
-      print('DEBUG: Client location update failed: $e');
       debugPrint('Error sending client location update: $e');
-      
-      // Add back to buffer if failed to retry later
+      // Add back to buffer for retry on next flush
       if (_clientLocationBuffer.isEmpty) {
         _clientLocationBuffer.add(latest);
       }
@@ -165,30 +169,32 @@ class LocationService {
     _clientLocationBuffer.clear();
     _clientPositionSubscription = null;
     _clientBatchTimer = null;
-    
-    // If driver tracking is also not active, we can mark isTracking false
-    if (_driverPositionSubscription == null) {
-      _isTracking = false;
-    }
+    _isClientTracking = false;
   }
 
   // =========================================================================
 
-  /// Start tracking location with batching for driver mode
+  /// Start tracking location with batching for driver mode.
+  /// Independent of client tracking — uses its own flag.
   Future<void> startTracking({
     required String driverId,
     int updateIntervalMs = AppConstants.gpsUpdateIntervalMs,
     int batchingDurationMs = AppConstants.gpsBatchingDurationMs,
     double minDistanceMeters = AppConstants.gpsMinDistanceMeters,
   }) async {
-    if (_isTracking) return;
+    if (_isDriverTracking) return;
 
     final hasPermission = await checkPermissions();
     if (!hasPermission) {
       throw Exception('Location permission not granted');
     }
 
-    _isTracking = true;
+    _isDriverTracking = true;
+
+    // Pre-subscribe to the broadcast channel so it's ready on first flush
+    _driverBroadcastChannel ??= _supabaseService.channel(
+      AppConstants.channelDriversPositions,
+    );
 
     // Start position stream
     _driverPositionSubscription =
@@ -226,14 +232,16 @@ class LocationService {
     }
   }
 
-  /// Flush driver location buffer and send to server
+  /// Flush driver location buffer and send to server.
+  /// Reuses the pre-subscribed broadcast channel to avoid creating a new
+  /// channel object on every flush.
   Future<void> _flushDriverLocationBuffer(String driverId) async {
     if (_driverLocationBuffer.isEmpty) return;
 
     final updates = _driverLocationBuffer.toList();
     _driverLocationBuffer.clear();
 
-    // Get latest update for database
+    // Use only the latest GPS sample
     final latest = updates.last;
 
     try {
@@ -248,22 +256,18 @@ class LocationService {
         'updated_at': latest.timestamp.toIso8601String(),
       };
 
-      print(
-        'DEBUG: Sending location update for $driverId: Lat=${latest.lat}, Lng=${latest.lng}',
-      );
+      debugPrint('Sending location update for $driverId: Lat=${latest.lat}, Lng=${latest.lng}');
 
-      // Update database with latest position
       // NOTE: We do NOT send the 'location' field.
-      // The database computes it automatically from lat/lng.
+      // The database trigger computes it automatically from lat/lng.
       await _supabaseService
           .from(AppConstants.driversLocationsTable)
           .upsert(payload)
           .eq('driver_id', driverId);
 
-      // Broadcast to realtime channel
-      final channel = _supabaseService.channel(
-        AppConstants.channelDriversPositions,
-      );
+      // Reuse cached broadcast channel — avoids a new channel object every flush
+      final channel = _driverBroadcastChannel ??
+          _supabaseService.channel(AppConstants.channelDriversPositions);
       await channel.sendBroadcastMessage(
         event: 'location_update',
         payload: {
@@ -275,29 +279,36 @@ class LocationService {
         },
       );
     } catch (e) {
-      print('DEBUG: Location update failed: $e');
       debugPrint('Error sending location update: $e');
-      // Re-add to buffer for retry
+      // Re-add to buffer for retry on next cycle
       _driverLocationBuffer.addAll(updates);
     }
   }
 
-  /// Stop tracking location
+  /// Stop all tracking (driver + client)
   Future<void> stopTracking() async {
-    _isTracking = false;
-    
+    _isDriverTracking = false;
+    _isClientTracking = false;
+
     await _driverPositionSubscription?.cancel();
     _driverBatchTimer?.cancel();
     _driverLocationBuffer.clear();
-    
-    _clientPositionSubscription?.cancel();
+    _driverPositionSubscription = null;
+    _driverBatchTimer = null;
+
+    await _driverBroadcastChannel?.unsubscribe();
+    _driverBroadcastChannel = null;
+
+    await _clientPositionSubscription?.cancel();
     _clientBatchTimer?.cancel();
     _clientLocationBuffer.clear();
+    _clientPositionSubscription = null;
+    _clientBatchTimer = null;
   }
 
   /// Update driver online status
   Future<void> setOnlineStatus(String driverId, bool isOnline) async {
-    print('DEBUG: Setting online status for $driverId to $isOnline');
+    debugPrint('Setting online status for $driverId to $isOnline');
     try {
       // Use update instead of upsert.
       // We don't want to create a row where lat/lng is missing.
@@ -310,7 +321,8 @@ class LocationService {
           })
           .eq('driver_id', driverId);
     } catch (e) {
-      print('DEBUG: Status update failed (Normal if first time): $e');
+      // Normal on first login before driver has a location row
+      debugPrint('Status update failed (normal if first time): $e');
     }
   }
 
@@ -334,11 +346,17 @@ class LocationService {
         .toList();
   }
 
-  /// Subscribe to driver location updates
+  /// Subscribe to driver location updates.
+  /// Unsubscribes the previous channel for this driver before creating a new
+  /// one, preventing stale channel accumulation on repeated calls.
   Stream<DriverLocationModel> subscribeToDriverLocation(String driverId) {
     final controller = StreamController<DriverLocationModel>.broadcast();
 
+    // Unsubscribe any existing channel for this driver before creating a new one
+    _driverLocationChannel?.unsubscribe();
     final channel = _supabaseService.channel('driver_$driverId');
+    _driverLocationChannel = channel;
+
     channel
         .onBroadcast(
           event: 'location_update',
@@ -360,6 +378,9 @@ class LocationService {
 
     controller.onCancel = () {
       channel.unsubscribe();
+      if (_driverLocationChannel == channel) {
+        _driverLocationChannel = null;
+      }
     };
 
     return controller.stream;

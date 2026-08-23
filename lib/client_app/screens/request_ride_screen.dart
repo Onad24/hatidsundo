@@ -177,7 +177,7 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
         });
       }
     } catch (e) {
-      print('Reverse geocode error: $e');
+      debugPrint('Reverse geocode error: $e');
     }
   }
 
@@ -294,43 +294,104 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
       ),
       body: Column(
         children: [
-          // Location inputs
+          // Location inputs card
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(24),
+              ),
               boxShadow: AppTheme.cardShadow,
             ),
             child: Column(
               children: [
-                // Pickup
-                _buildLocationInput(
-                  controller: _pickupController,
-                  icon: Icons.circle,
-                  iconColor: AppTheme.successColor,
-                  hint: 'Pickup location',
-                  isSelected: _selectingPickup,
-                  onTap: () => setState(() => _selectingPickup = true),
-                ),
-                const SizedBox(height: 8),
-
-                // Connector
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(width: 11),
-                    Container(width: 2, height: 20, color: AppTheme.neutral300),
-                  ],
-                ),
-                const SizedBox(height: 8),
+                    // Timeline indicator (Green dot -> line -> Red pin)
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        top: 14,
+                        left: 4,
+                        right: 12,
+                      ),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: AppTheme.successColor,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.successColor.withValues(
+                                    alpha: 0.4,
+                                  ),
+                                  blurRadius: 6,
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            width: 2,
+                            height: 38,
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.neutral300,
+                              borderRadius: BorderRadius.circular(1),
+                            ),
+                          ),
+                          Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: AppTheme.errorColor,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.errorColor.withValues(
+                                    alpha: 0.4,
+                                  ),
+                                  blurRadius: 6,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
 
-                // Destination
-                _buildLocationInput(
-                  controller: _destController,
-                  icon: Icons.location_on_rounded,
-                  iconColor: AppTheme.errorColor,
-                  hint: 'Where to?',
-                  isSelected: !_selectingPickup,
-                  onTap: () => setState(() => _selectingPickup = false),
+                    // Inputs column
+                    Expanded(
+                      child: Column(
+                        children: [
+                          _buildLocationInput(
+                            controller: _pickupController,
+                            icon: Icons.circle,
+                            iconColor: AppTheme.successColor,
+                            hint: 'Pickup location',
+                            isSelected: _selectingPickup,
+                            onTap: () =>
+                                setState(() => _selectingPickup = true),
+                          ),
+                          const SizedBox(height: 10),
+                          _buildLocationInput(
+                            controller: _destController,
+                            icon: Icons.location_on_rounded,
+                            iconColor: AppTheme.errorColor,
+                            hint: 'Where to?',
+                            isSelected: !_selectingPickup,
+                            onTap: () =>
+                                setState(() => _selectingPickup = false),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -341,20 +402,43 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
             Expanded(
               child: Container(
                 color: Theme.of(context).scaffoldBackgroundColor,
-                child: ListView.builder(
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: _searchResults.length,
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1, indent: 64),
                   itemBuilder: (context, index) {
                     final result = _searchResults[index];
                     return ListTile(
-                      leading: const Icon(Icons.location_on_outlined),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.location_on_rounded,
+                          color: AppTheme.primaryColor,
+                          size: 20,
+                        ),
+                      ),
                       title: Text(
                         result.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
                       ),
                       subtitle: Text(
                         result.address,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 13,
+                          color: AppTheme.neutral500,
+                        ),
                       ),
                       onTap: () => _selectSearchResult(result),
                     );
@@ -376,39 +460,42 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
                     onTap: _onMapTap,
                   ),
 
-                  // Selection hint
+                  // Selection hint pill
                   Positioned(
                     top: 16,
-                    left: 16,
-                    right: 16,
+                    left: 20,
+                    right: 20,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
-                        vertical: 12,
+                        vertical: 10,
                       ),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).cardColor,
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: AppTheme.cardShadow,
+                        color: Colors.white.withValues(alpha: 0.94),
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.radiusFull,
+                        ),
+                        border: Border.all(color: AppTheme.neutral200),
+                        boxShadow: AppTheme.floatingShadow,
                       ),
                       child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
                             Icons.touch_app_rounded,
                             color: AppTheme.primaryColor,
-                            size: 20,
+                            size: 18,
                           ),
                           const SizedBox(width: 8),
                           Text(
                             _selectingPickup
-                                ? 'Tap map to set pickup'
+                                ? 'Tap map to choose pickup point'
                                 : 'Tap map to set destination',
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontFamily: 'Outfit',
-                              fontSize: 14,
-                              color: Theme.of(
-                                context,
-                              ).textTheme.bodyMedium?.color,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.neutral800,
                             ),
                           ),
                         ],
@@ -422,7 +509,7 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
               ),
             ),
 
-          // Route info and request button (only show if not searching and route exists)
+          // Route info and request button
           if (_searchResults.isEmpty) ...[
             if (_routeInfo != null)
               _buildRouteInfoPanel()
@@ -448,14 +535,12 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
     required VoidCallback onTap,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       decoration: BoxDecoration(
         color: isSelected
-            ? AppTheme.primaryColor.withValues(alpha: 0.05)
-            : Theme.of(context).brightness == Brightness.dark
-            ? AppTheme.neutral800
-            : AppTheme.neutral100,
-        borderRadius: BorderRadius.circular(12),
+            ? AppTheme.primaryColor.withValues(alpha: 0.06)
+            : AppTheme.neutral400,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isSelected ? AppTheme.primaryColor : Colors.transparent,
           width: 1.5,
@@ -463,8 +548,6 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
       ),
       child: Row(
         children: [
-          Icon(icon, color: iconColor, size: 12),
-          const SizedBox(width: 12),
           Expanded(
             child: TextField(
               controller: controller,
@@ -473,25 +556,41 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
               decoration: InputDecoration(
                 hintText: hint,
                 border: InputBorder.none,
-                hintStyle: TextStyle(
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                hintStyle: const TextStyle(
                   fontFamily: 'Outfit',
                   fontSize: 15,
-                  color: Theme.of(context).hintColor,
+                  color: AppTheme.neutral400,
                 ),
               ),
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.normal,
+              style: const TextStyle(
+                fontFamily: 'Outfit',
+                fontWeight: FontWeight.w600,
                 fontSize: 15,
+                color: AppTheme.neutral400,
               ),
             ),
           ),
           if (controller.text.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.close, size: 16),
-              onPressed: () {
+            GestureDetector(
+              onTap: () {
                 controller.clear();
-                _onSearchChanged(''); // Clear search
+                _onSearchChanged('');
               },
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppTheme.neutral200,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.close_rounded,
+                  size: 14,
+                  color: AppTheme.neutral600,
+                ),
+              ),
             ),
         ],
       ),
@@ -499,7 +598,6 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
   }
 
   Widget _buildRouteInfoPanel() {
-    // Use dynamic fare settings from database
     final fareSettingsAsync = ref.watch(fareSettingsProvider);
     final fareSettings = fareSettingsAsync.valueOrNull ?? const FareSettings();
 
@@ -514,14 +612,15 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
     final bool noDriversNearby = _nearestDriverDistanceKm == null;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
       decoration: BoxDecoration(
         color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+            color: Colors.black.withValues(alpha: 0.10),
+            blurRadius: 24,
+            offset: const Offset(0, -6),
           ),
         ],
       ),
@@ -530,96 +629,125 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Distance & duration row
+            // Distance & duration summary bar
             Row(
               children: [
-                Icon(
-                  Icons.straighten_rounded,
-                  size: 16,
-                  color: AppTheme.neutral400,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '${_routeInfo!.distanceKm.toStringAsFixed(1)} km',
-                  style: const TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.neutral600,
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.neutral100,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.straighten_rounded,
+                        size: 15,
+                        color: AppTheme.neutral600,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        '${_routeInfo!.distanceKm.toStringAsFixed(1)} km',
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.neutral800,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 16),
-                Icon(
-                  Icons.schedule_rounded,
-                  size: 16,
-                  color: AppTheme.neutral400,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '${_routeInfo!.durationMinutes} min',
-                  style: const TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.neutral600,
+                const SizedBox(width: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.neutral100,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.schedule_rounded,
+                        size: 15,
+                        color: AppTheme.neutral600,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        '~${_routeInfo!.durationMinutes} mins',
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.neutral800,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const Spacer(),
                 if (isNight)
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
+                      horizontal: 10,
+                      vertical: 5,
                     ),
                     decoration: BoxDecoration(
-                      color: AppTheme.warningColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      color: AppTheme.warningColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusFull),
                     ),
-                    child: Text(
+                    child: const Text(
                       '🌙 Night rate',
                       style: TextStyle(
                         fontFamily: 'Outfit',
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
                         color: AppTheme.warningColor,
                       ),
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 14),
 
-            // Vehicle type selector
+            // Vehicle type cards selector
             Row(
               children: [
                 _buildVehicleTypeChip(
                   type: 'motorcycle',
                   icon: Icons.two_wheeler_rounded,
                   label: 'Motorcycle',
+                  subtitle: '1 Passenger',
                   fare: fareSettings.calculateFare(
                     destKm: destKm,
                     driverPickupKm: driverKm,
                     vehicleType: 'motorcycle',
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 _buildVehicleTypeChip(
                   type: 'sedan',
                   icon: Icons.directions_car_rounded,
                   label: 'Sedan',
-                  subtitle: '2-4 Seaters',
+                  subtitle: '2-4 Seats',
                   fare: fareSettings.calculateFare(
                     destKm: destKm,
                     driverPickupKm: driverKm,
                     vehicleType: 'sedan',
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 _buildVehicleTypeChip(
                   type: 'suv',
                   icon: Icons.directions_car_filled_rounded,
                   label: 'SUV',
-                  subtitle: '6-8 Seaters',
+                  subtitle: '6-8 Seats',
                   fare: fareSettings.calculateFare(
                     destKm: destKm,
                     driverPickupKm: driverKm,
@@ -628,42 +756,86 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 14),
 
-            // Disclaimer if no nearby driver found
             if (noDriversNearby)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 10),
                 child: Text(
-                  '* Fare estimate excludes pickup distance (no nearby riders found)',
+                  '* Fare estimate excludes pickup distance (no nearby riders currently active)',
                   style: TextStyle(
                     fontFamily: 'Outfit',
-                    fontSize: 10,
+                    fontSize: 11,
                     color: AppTheme.neutral500,
                   ),
                 ),
               ),
 
-            // Request button
-            SizedBox(
+            // Big Gradient Request Button
+            Container(
               width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _requestRide,
-                child: _isLoading
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : Text(
-                        noDriversNearby
-                            ? 'Request Ride  •  ₱${estimatedFare.toStringAsFixed(0)}+'
-                            : 'Request Ride  •  ₱${estimatedFare.toStringAsFixed(0)}',
-                      ),
+              height: 56,
+              decoration: BoxDecoration(
+                gradient: AppTheme.primaryGradient,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: AppTheme.elevatedShadow,
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _isLoading ? null : _requestRide,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Center(
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                noDriversNearby
+                                    ? 'Request Ride'
+                                    : 'Confirm & Request',
+                                style: const TextStyle(
+                                  fontFamily: 'Outfit',
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.22),
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.radiusFull,
+                                  ),
+                                ),
+                                child: Text(
+                                  '₱${estimatedFare.toStringAsFixed(0)}',
+                                  style: const TextStyle(
+                                    fontFamily: 'Outfit',
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
               ),
             ),
           ],
@@ -685,94 +857,76 @@ class _RequestRideScreenState extends ConsumerState<RequestRideScreen> {
         onTap: () => setState(() => _selectedVehicleType = type),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppTheme.primaryColor.withValues(alpha: 0.1)
+                ? AppTheme.primaryColor.withValues(alpha: 0.08)
                 : AppTheme.neutral100,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isSelected ? AppTheme.primaryColor : Colors.transparent,
-              width: 2,
+              color: isSelected ? AppTheme.primaryColor : AppTheme.neutral200,
+              width: isSelected ? 2 : 1,
             ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : null,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 icon,
-                size: 20,
-                color: isSelected ? AppTheme.primaryColor : AppTheme.neutral400,
+                size: 24,
+                color: isSelected ? AppTheme.primaryColor : AppTheme.neutral600,
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 4),
               Text(
                 label,
                 style: TextStyle(
                   fontFamily: 'Outfit',
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
                   color: isSelected
                       ? AppTheme.primaryColor
-                      : AppTheme.neutral600,
+                      : AppTheme.neutral800,
                 ),
               ),
-              if (subtitle != null)
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
                 Text(
                   subtitle,
                   style: TextStyle(
                     fontFamily: 'Outfit',
-                    fontSize: 8,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w500,
                     color: isSelected
-                        ? AppTheme.primaryColor.withValues(alpha: 0.7)
-                        : AppTheme.neutral400,
+                        ? AppTheme.primaryColor.withValues(alpha: 0.8)
+                        : AppTheme.neutral500,
                   ),
                 ),
-              const SizedBox(height: 2),
+              ],
+              const SizedBox(height: 6),
               Text(
                 '₱${fare.toStringAsFixed(0)}',
                 style: TextStyle(
                   fontFamily: 'Outfit',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
                   color: isSelected
                       ? AppTheme.primaryColor
-                      : AppTheme.neutral700,
+                      : AppTheme.neutral900,
                 ),
               ),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildRouteStat({
-    required IconData icon,
-    required String value,
-    required String label,
-  }) {
-    return Column(
-      children: [
-        Icon(icon, color: AppTheme.primaryColor, size: 24),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            fontFamily: 'Outfit',
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: AppTheme.neutral900,
-          ),
-        ),
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Outfit',
-            fontSize: 12,
-            color: AppTheme.neutral500,
-          ),
-        ),
-      ],
     );
   }
 }

@@ -85,9 +85,13 @@ class _NavigationScreenState extends ConsumerState<NavigationScreen> {
     });
 
     try {
-      // Invalidate cached position so we always get a fresh GPS read
-      ref.invalidate(currentPositionProvider);
-      final position = await ref.read(currentPositionProvider.future);
+      // Prefer the live position from the ongoing GPS stream (already maintained
+      // by LocationService) to avoid triggering a costly one-shot GPS read on
+      // every 10-second cycle.
+      final streamPosition = ref.read(driverOnlineProvider).currentPosition;
+      final position = streamPosition ??
+          await ref.read(locationServiceProvider).getCurrentPosition();
+
       if (position == null || !mounted) {
         setState(() => _isRouteUpdating = false);
         return;

@@ -158,20 +158,21 @@ class OsrmService {
     bool steps = true,
     String geometries = 'polyline6', // More precise polyline
     String overview = 'full',
+    bool annotations = false, // Edge metadata; false by default to reduce payload
   }) async {
     try {
+      final queryParams = <String, String>{
+        'alternatives': alternatives.toString(),
+        'steps': steps.toString(),
+        'geometries': geometries,
+        'overview': overview,
+      };
+      if (annotations) queryParams['annotations'] = 'true';
+
       final uri =
           Uri.parse(
             '$_baseUrl/route/v1/driving/$startLng,$startLat;$endLng,$endLat',
-          ).replace(
-            queryParameters: {
-              'alternatives': alternatives.toString(),
-              'steps': steps.toString(),
-              'geometries': geometries,
-              'overview': overview,
-              'annotations': 'true',
-            },
-          );
+          ).replace(queryParameters: queryParams);
 
       final response = await _dio.getUri(uri);
 

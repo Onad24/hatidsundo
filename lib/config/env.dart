@@ -42,7 +42,7 @@ class EnvConfig {
   // MapLibre Style URL (OpenFreeMap provides free OSM-based vector tiles)
   static const String mapStyleUrl = String.fromEnvironment(
     'MAP_STYLE_URL',
-    defaultValue: 'https://tiles.openfreemap.org/styles/liberty',
+    defaultValue: 'https://tiles.openfreemap.org/styles/bright',
   );
 
   // Debug Mode

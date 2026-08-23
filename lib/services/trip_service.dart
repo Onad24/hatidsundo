@@ -16,6 +16,15 @@ class TripService {
   final OsrmService _osrmService;
   final Uuid _uuid = const Uuid();
 
+  // In-memory fare settings cache (avoids repeated DB reads for data that
+  // rarely changes; admin updates take effect within the TTL window)
+  Map<String, dynamic>? _cachedFareSettings;
+  DateTime? _fareSettingsCachedAt;
+  static const Duration _fareSettingsTtl = Duration(minutes: 10);
+
+  // Cached broadcast channels keyed by trip ID — reused on every route broadcast
+  final Map<String, RealtimeChannel> _routeBroadcastChannels = {};
+
   TripService(this._supabaseService, this._osrmService);
 
   // Expose for debugging
@@ -34,7 +43,7 @@ class TripService {
     double? nearestDriverDistanceKm,
     String? vehicleType,
   }) async {
-    print('DEBUG createTrip: starting for client $clientId');
+    debugPrint('createTrip: starting for client $clientId');
 
     // Get route info for fare estimation
     final route = await _osrmService.getRoute(
@@ -43,20 +52,34 @@ class TripService {
       endLat: destLat,
       endLng: destLng,
     );
-    print('DEBUG createTrip: got route, distance=${route.distanceKm}km');
+    debugPrint('createTrip: got route, distance=${route.distanceKm}km');
 
-    // Fetch fare settings from database (falls back to defaults on error)
+    // Fetch fare settings from database with in-memory caching.
+    // Settings rarely change, so we cache for 10 minutes to avoid a
+    // round-trip on every ride request.
     double baseFare = 25.0;
     double perKmRate = 8.0;
     double nightRateMultiplier = 1.2;
     int nightStartHour = 21;
     int nightEndHour = 5;
     try {
-      final fareRow = await _supabaseService
-          .from('fare_settings')
-          .select()
-          .eq('id', 1)
-          .single();
+      final now = DateTime.now();
+      final cacheExpired = _fareSettingsCachedAt == null ||
+          now.difference(_fareSettingsCachedAt!) > _fareSettingsTtl;
+
+      if (cacheExpired) {
+        _cachedFareSettings = await _supabaseService
+            .from('fare_settings')
+            .select()
+            .eq('id', 1)
+            .single();
+        _fareSettingsCachedAt = now;
+        debugPrint('Fare settings fetched from DB and cached.');
+      } else {
+        debugPrint('Fare settings served from cache.');
+      }
+
+      final fareRow = _cachedFareSettings!;
       baseFare = (fareRow['base_fare'] as num?)?.toDouble() ?? 25.0;
       // Use per-vehicle-type base fare and rate if available
       switch (vehicleType) {
@@ -115,13 +138,13 @@ class TripService {
       'created_at': DateTime.now().toIso8601String(),
     };
 
-    print('DEBUG createTrip: inserting into Supabase...');
+    debugPrint('createTrip: inserting into Supabase...');
     final result = await _supabaseService
         .from(AppConstants.tripsTable)
         .insert(tripData)
         .select()
         .single();
-    print('DEBUG createTrip: insert successful, id=${result['id']}');
+    debugPrint('createTrip: insert successful, id=${result['id']}');
 
     // Notify nearby riders via match_driver (sends FCM push notifications)
     try {
@@ -133,14 +156,12 @@ class TripService {
           'pickup_lng': pickupLng,
         },
       );
-      print(
-        'DEBUG createTrip: match_driver notified ${matchResponse.data?['notified_drivers'] ?? 0} drivers',
+      debugPrint(
+        'match_driver notified ${matchResponse.data?['notified_drivers'] ?? 0} drivers',
       );
     } catch (e) {
       // Notifications are optional - riders will see trips via realtime feed
-      print(
-        'DEBUG createTrip: match_driver notification failed (optional): $e',
-      );
+      debugPrint('match_driver notification failed (optional): $e');
     }
 
     return TripModel.fromJson(result);
@@ -193,7 +214,7 @@ class TripService {
         driverInfo = '\n\nDriver: $name';
       }
     } catch (e) {
-      print('DEBUG fetching driver info failed: $e');
+      debugPrint('fetching driver info failed: $e');
       driverInfo = '\n\n[Error fetching info: $e]';
     }
 
@@ -253,14 +274,14 @@ class TripService {
 
   /// Complete the trip
   Future<TripModel> completeTrip(String tripId) async {
-    print('DEBUG completeTrip: starting for tripId=$tripId');
+    debugPrint('completeTrip: starting for tripId=$tripId');
 
     final result = await _supabaseService.client.rpc(
       'complete_trip_rpc',
       params: {'p_trip_id': tripId},
     );
 
-    print('DEBUG completeTrip: RPC result=$result');
+    debugPrint('completeTrip: RPC result=$result');
     final tripData = result as Map<String, dynamic>;
 
     // Notify client that trip is completed
@@ -296,7 +317,8 @@ class TripService {
           },
         )
         .catchError((e) {
-          print('WARNING: $type notification failed (non-blocking): $e');
+          debugPrint('WARNING: $type notification failed (non-blocking): $e');
+          return FunctionResponse(status: -1);
         });
   }
 
@@ -434,12 +456,13 @@ class TripService {
     return (result as List).map((j) => TripModel.fromJson(j)).toList();
   }
 
-  /// Subscribe to trip updates
+  /// Subscribe to trip updates.
+  /// Uses a stable channel name (no timestamp) so channels can be reused
+  /// and cleaned up correctly on cancellation.
   Stream<TripModel> subscribeTripUpdates(String tripId) {
     final controller = StreamController<TripModel>.broadcast();
 
-    final channelName =
-        'trip_${tripId}_${DateTime.now().millisecondsSinceEpoch}';
+    final channelName = 'trip_$tripId';
     final channel = _supabaseService
         .channel(channelName)
         .onPostgresChanges(
@@ -497,7 +520,9 @@ class TripService {
     return controller.stream;
   }
 
-  /// Broadcast a route polyline update from rider to client
+  /// Broadcast a route polyline update from rider to client.
+  /// Reuses a cached channel per trip ID to avoid creating a new channel
+  /// object on every 10-second navigation update cycle.
   Future<void> broadcastRouteUpdate({
     required String tripId,
     required String polyline,
@@ -505,7 +530,10 @@ class TripService {
     required double distanceKm,
   }) async {
     try {
-      final channel = _supabaseService.channel('trip_route_$tripId');
+      final channel = _routeBroadcastChannels.putIfAbsent(
+        tripId,
+        () => _supabaseService.channel('trip_route_$tripId'),
+      );
       await channel.sendBroadcastMessage(
         event: 'route_update',
         payload: {
@@ -516,7 +544,7 @@ class TripService {
         },
       );
     } catch (e) {
-      print('DEBUG: broadcastRouteUpdate error: $e');
+      debugPrint('broadcastRouteUpdate error: $e');
     }
   }
 
@@ -529,7 +557,7 @@ class TripService {
         .onBroadcast(
           event: 'route_update',
           callback: (payload) {
-            print('DEBUG: Received route broadcast for trip $tripId');
+            debugPrint('Received route broadcast for trip $tripId');
             controller.add(payload);
           },
         )
@@ -560,7 +588,7 @@ class TripService {
         },
       );
     } catch (e) {
-      print('DEBUG: sendPushNotification failed (non-blocking): $e');
+      debugPrint('sendPushNotification failed (non-blocking): $e');
     }
   }
 }

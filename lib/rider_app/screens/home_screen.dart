@@ -8,6 +8,7 @@ import '../../core/router.dart';
 import '../../state/state.dart';
 import '../../services/update_service.dart';
 import '../../widgets/map_widget.dart';
+import '../../client_app/screens/privacy_policy_screen.dart';
 
 /// Rider home screen with online toggle and ride requests
 class RiderHomeScreen extends ConsumerStatefulWidget {
@@ -24,7 +25,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
   void initState() {
     super.initState();
     _loadCurrentLocation();
-    
+
     // Check for app updates
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkForUpdate();
@@ -80,7 +81,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
           // Top bar
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
                   _buildCircleButton(
@@ -88,34 +89,57 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                     onPressed: () => _showDrawer(context),
                   ),
                   const Spacer(),
-                  // Earnings quick view
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: AppTheme.cardShadow,
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.account_balance_wallet_rounded,
-                          size: 18,
-                          color: AppTheme.successColor,
+                  // Earnings quick view pill
+                  GestureDetector(
+                    onTap: () => context.push(Routes.riderEarnings),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.radiusFull,
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '₱${feeState.currentWeekFee?.accruedFee.toStringAsFixed(0) ?? '0'}',
-                          style: const TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                        border: Border.all(color: AppTheme.neutral200),
+                        boxShadow: AppTheme.cardShadow,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.successColor.withValues(
+                                alpha: 0.12,
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.account_balance_wallet_rounded,
+                              size: 14,
+                              color: AppTheme.successColor,
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          Text(
+                            '₱${feeState.currentWeekFee?.accruedFee.toStringAsFixed(0) ?? '0'}',
+                            style: const TextStyle(
+                              fontFamily: 'Outfit',
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: AppTheme.neutral900,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 10,
+                            color: AppTheme.neutral400,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -133,7 +157,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: AppTheme.errorColor,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                   boxShadow: AppTheme.cardShadow,
                 ),
                 child: Row(
@@ -149,7 +173,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                             style: TextStyle(
                               fontFamily: 'Outfit',
                               fontSize: 14,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w700,
                               color: Colors.white,
                             ),
                           ),
@@ -158,7 +182,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                             style: TextStyle(
                               fontFamily: 'Outfit',
                               fontSize: 12,
-                              color: Colors.white.withValues(alpha: 0.8),
+                              color: Colors.white.withValues(alpha: 0.85),
                             ),
                           ),
                         ],
@@ -182,17 +206,17 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
             right: 0,
             bottom: 0,
             child: Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(24),
+                  top: Radius.circular(28),
                 ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, -5),
+                    blurRadius: 24,
+                    offset: const Offset(0, -6),
                   ),
                 ],
               ),
@@ -201,104 +225,161 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Online toggle
-                    InkWell(
-                      onTap: canGoOnline
-                          ? () async {
-                              final notifier = ref.read(
-                                driverOnlineProvider.notifier,
-                              );
-                              final success = await notifier.toggleOnline();
-
-                              if (!success && context.mounted) {
-                                final error = ref
-                                    .read(driverOnlineProvider)
-                                    .error;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      error ??
-                                          'Failed to go online. Check location permissions.',
-                                    ),
-                                    backgroundColor: AppTheme.errorColor,
-                                  ),
-                                );
-                              }
-                            }
-                          : null,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    driverState.isOnline
-                                        ? 'You are online'
-                                        : 'You are offline',
-                                    style: TextStyle(
-                                      fontFamily: 'Outfit',
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w700,
-                                      color: driverState.isOnline
-                                          ? AppTheme.successColor
-                                          : AppTheme.neutral700,
-                                    ),
-                                  ),
-                                  Text(
-                                    driverState.isOnline
-                                        ? 'Waiting for ride requests'
-                                        : 'Go online to start receiving rides',
-                                    style: const TextStyle(
-                                      fontFamily: 'Outfit',
-                                      fontSize: 13,
-                                      color: AppTheme.neutral500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IgnorePointer(
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                width: 64,
-                                height: 36,
-                                padding: const EdgeInsets.all(3),
-                                decoration: BoxDecoration(
-                                  color: driverState.isOnline
-                                      ? AppTheme.successColor
-                                      : canGoOnline
-                                      ? AppTheme.neutral300
-                                      : AppTheme.neutral200,
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                                child: AnimatedAlign(
-                                  duration: const Duration(milliseconds: 200),
-                                  alignment: driverState.isOnline
-                                      ? Alignment.centerRight
-                                      : Alignment.centerLeft,
-                                  child: Container(
-                                    width: 30,
-                                    height: 30,
-                                    decoration: const BoxDecoration(
-                                      color: Colors.white,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                    // Handle
+                    Center(
+                      child: Container(
+                        width: 44,
+                        height: 5,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: AppTheme.neutral300,
+                          borderRadius: BorderRadius.circular(3),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
+
+                    // Online toggle hero card
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        color: driverState.isOnline
+                            ? AppTheme.successColor.withValues(alpha: 0.08)
+                            : AppTheme.neutral100,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: driverState.isOnline
+                              ? AppTheme.successColor.withValues(alpha: 0.3)
+                              : AppTheme.neutral200,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          // Status indicator dot
+                          Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: driverState.isOnline
+                                  ? AppTheme.successColor
+                                  : AppTheme.neutral400,
+                              shape: BoxShape.circle,
+                              boxShadow: driverState.isOnline
+                                  ? [
+                                      BoxShadow(
+                                        color: AppTheme.successColor.withValues(
+                                          alpha: 0.6,
+                                        ),
+                                        blurRadius: 8,
+                                        spreadRadius: 2,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  driverState.isOnline
+                                      ? 'You are Online'
+                                      : 'You are Offline',
+                                  style: TextStyle(
+                                    fontFamily: 'Outfit',
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: driverState.isOnline
+                                        ? AppTheme.successColor
+                                        : AppTheme.neutral800,
+                                  ),
+                                ),
+                                Text(
+                                  driverState.isOnline
+                                      ? 'Ready to accept incoming rides'
+                                      : 'Slide toggle to start receiving rides',
+                                  style: const TextStyle(
+                                    fontFamily: 'Outfit',
+                                    fontSize: 12,
+                                    color: AppTheme.neutral500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Toggle switch
+                          GestureDetector(
+                            onTap: canGoOnline
+                                ? () async {
+                                    final notifier = ref.read(
+                                      driverOnlineProvider.notifier,
+                                    );
+                                    final success = await notifier
+                                        .toggleOnline();
+
+                                    if (!success && context.mounted) {
+                                      final error = ref
+                                          .read(driverOnlineProvider)
+                                          .error;
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            error ??
+                                                'Failed to go online. Check location permissions.',
+                                          ),
+                                          backgroundColor: AppTheme.errorColor,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                : null,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 250),
+                              width: 60,
+                              height: 34,
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                color: driverState.isOnline
+                                    ? AppTheme.successColor
+                                    : canGoOnline
+                                    ? AppTheme.neutral300
+                                    : AppTheme.neutral200,
+                                borderRadius: BorderRadius.circular(17),
+                              ),
+                              child: AnimatedAlign(
+                                duration: const Duration(milliseconds: 250),
+                                alignment: driverState.isOnline
+                                    ? Alignment.centerRight
+                                    : Alignment.centerLeft,
+                                child: Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black26,
+                                        blurRadius: 4,
+                                        offset: Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
 
                     // Blocking banner for unapproved or unsettled riders
                     if (blockingReason != null)
@@ -307,7 +388,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                         margin: const EdgeInsets.only(bottom: 12),
                         decoration: BoxDecoration(
                           color: AppTheme.warningColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: AppTheme.warningColor.withValues(alpha: 0.4),
                           ),
@@ -323,11 +404,11 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                             Expanded(
                               child: Text(
                                 blockingReason,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontFamily: 'Outfit',
                                   fontSize: 13,
                                   color: AppTheme.warningColor,
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
@@ -347,7 +428,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                                   style: TextStyle(
                                     fontFamily: 'Outfit',
                                     fontSize: 12,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ),
@@ -361,33 +442,37 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                         data: (trips) {
                           if (trips.isEmpty) {
                             return Container(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 18,
+                              ),
                               margin: const EdgeInsets.only(bottom: 16),
                               decoration: BoxDecoration(
                                 color: AppTheme.neutral100,
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(18),
                               ),
-                              child: Row(
+                              child: const Row(
                                 children: [
                                   Icon(
-                                    Icons.search_rounded,
-                                    color: AppTheme.neutral400,
+                                    Icons.radar_rounded,
+                                    color: AppTheme.primaryColor,
                                     size: 24,
                                   ),
-                                  const SizedBox(width: 12),
+                                  SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
-                                      'Looking for ride requests nearby...',
+                                      'Searching for ride requests nearby...',
                                       style: TextStyle(
                                         fontFamily: 'Outfit',
                                         fontSize: 14,
-                                        color: AppTheme.neutral500,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppTheme.neutral600,
                                       ),
                                     ),
                                   ),
                                   SizedBox(
-                                    width: 20,
-                                    height: 20,
+                                    width: 18,
+                                    height: 18,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
                                       color: AppTheme.primaryColor,
@@ -400,14 +485,40 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Ride Requests (${trips.length})',
-                                style: const TextStyle(
-                                  fontFamily: 'Outfit',
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.neutral700,
-                                ),
+                              Row(
+                                children: [
+                                  const Text(
+                                    'Available Rides',
+                                    style: TextStyle(
+                                      fontFamily: 'Outfit',
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppTheme.neutral800,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryColor,
+                                      borderRadius: BorderRadius.circular(
+                                        AppTheme.radiusFull,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      '${trips.length}',
+                                      style: const TextStyle(
+                                        fontFamily: 'Outfit',
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: 12),
                               ...trips.map(
@@ -422,7 +533,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                           margin: const EdgeInsets.only(bottom: 16),
                           decoration: BoxDecoration(
                             color: AppTheme.neutral100,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(16),
                           ),
                           child: const Center(
                             child: CircularProgressIndicator(),
@@ -433,11 +544,11 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                           margin: const EdgeInsets.only(bottom: 16),
                           decoration: BoxDecoration(
                             color: AppTheme.errorColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(16),
                           ),
                           child: Text(
                             'Error loading rides: $e',
-                            style: TextStyle(color: AppTheme.errorColor),
+                            style: const TextStyle(color: AppTheme.errorColor),
                           ),
                         ),
                       ),
@@ -446,7 +557,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                     Row(
                       children: [
                         _buildQuickAction(
-                          icon: Icons.attach_money_rounded,
+                          icon: Icons.account_balance_wallet_rounded,
                           label: 'Earnings',
                           onTap: () => context.push(Routes.riderEarnings),
                         ),
@@ -482,10 +593,11 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         shape: BoxShape.circle,
-        boxShadow: AppTheme.cardShadow,
+        border: Border.all(color: AppTheme.neutral200.withValues(alpha: 0.8)),
+        boxShadow: AppTheme.floatingShadow,
       ),
       child: IconButton(
-        icon: Icon(icon, color: AppTheme.neutral700),
+        icon: Icon(icon, color: AppTheme.neutral800, size: 22),
         onPressed: onPressed,
       ),
     );
@@ -502,20 +614,30 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
-            color: AppTheme.neutral100,
-            borderRadius: BorderRadius.circular(12),
+            color: AppTheme.neutral50,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppTheme.neutral200.withValues(alpha: 0.8),
+            ),
           ),
           child: Column(
             children: [
-              Icon(icon, color: AppTheme.primaryColor),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: AppTheme.primaryColor, size: 20),
+              ),
               const SizedBox(height: 8),
               Text(
                 label,
                 style: const TextStyle(
                   fontFamily: 'Outfit',
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.neutral700,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.neutral800,
                 ),
               ),
             ],
@@ -540,16 +662,19 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
 
   Widget _buildRideRequestCard(BuildContext context, dynamic trip) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppTheme.primaryColor.withValues(alpha: 0.25),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
             color: AppTheme.primaryColor.withValues(alpha: 0.08),
-            blurRadius: 12,
+            blurRadius: 16,
             offset: const Offset(0, 4),
           ),
         ],
@@ -566,15 +691,22 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: AppTheme.successColor,
-                  borderRadius: BorderRadius.circular(20),
+                  gradient: AppTheme.emeraldGradient,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.successColor.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Text(
                   '₱${trip.fareEstimated?.toStringAsFixed(0) ?? '0'}',
                   style: const TextStyle(
                     fontFamily: 'Outfit',
                     fontSize: 16,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                     color: Colors.white,
                   ),
                 ),
@@ -583,19 +715,19 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
               if (trip.vehicleType != null)
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
+                    horizontal: 10,
+                    vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusFull),
                   ),
                   child: Text(
                     _vehicleTypeLabel(trip.vehicleType!),
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontFamily: 'Outfit',
                       fontSize: 11,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       color: AppTheme.primaryColor,
                     ),
                   ),
@@ -603,31 +735,33 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
               const Spacer(),
               Text(
                 '${trip.distanceKm?.toStringAsFixed(1) ?? '?'} km',
-                style: TextStyle(
+                style: const TextStyle(
                   fontFamily: 'Outfit',
-                  fontSize: 14,
-                  color: AppTheme.neutral500,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.neutral700,
                 ),
               ),
               const SizedBox(width: 8),
               Text(
-                '${trip.durationMin?.toStringAsFixed(0) ?? '?'} min',
-                style: TextStyle(
+                '~${trip.durationMin?.toStringAsFixed(0) ?? '?'} mins',
+                style: const TextStyle(
                   fontFamily: 'Outfit',
-                  fontSize: 14,
+                  fontSize: 13,
                   color: AppTheme.neutral500,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
+
           // Pickup
           Row(
             children: [
               Container(
                 width: 10,
                 height: 10,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: AppTheme.successColor,
                   shape: BoxShape.circle,
                 ),
@@ -641,31 +775,32 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                   style: const TextStyle(
                     fontFamily: 'Outfit',
                     fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.neutral800,
                   ),
                 ),
               ),
             ],
           ),
           const Padding(
-            padding: EdgeInsets.only(left: 4.5),
+            padding: EdgeInsets.only(left: 4),
             child: SizedBox(
-              height: 20,
-              child: VerticalDivider(color: AppTheme.neutral300, thickness: 1),
+              height: 16,
+              child: VerticalDivider(
+                color: AppTheme.neutral300,
+                thickness: 1.5,
+              ),
             ),
           ),
           // Destination
           Row(
             children: [
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: AppTheme.errorColor,
-                  shape: BoxShape.circle,
-                ),
+              const Icon(
+                Icons.location_on_rounded,
+                color: AppTheme.errorColor,
+                size: 14,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   trip.destAddress ?? 'Destination',
@@ -674,17 +809,32 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                   style: const TextStyle(
                     fontFamily: 'Outfit',
                     fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.neutral800,
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
+
           // Accept button
-          SizedBox(
+          Container(
             width: double.infinity,
+            height: 48,
+            decoration: BoxDecoration(
+              gradient: AppTheme.primaryGradient,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: AppTheme.elevatedShadow,
+            ),
             child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
               onPressed: () async {
                 // Check if rider can accept rides
                 final reason = ref.read(cannotAcceptReason);
@@ -729,22 +879,13 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: ref.read(canAcceptRidesProvider)
-                    ? AppTheme.primaryColor
-                    : AppTheme.neutral300,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
               child: const Text(
                 'Accept Ride',
                 style: TextStyle(
                   fontFamily: 'Outfit',
                   fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
                 ),
               ),
             ),
@@ -870,12 +1011,26 @@ class _RiderDrawer extends ConsumerWidget {
                 _buildMenuItem(
                   icon: Icons.directions_car_rounded,
                   label: 'Vehicle Details',
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showVehicleDetailsModal(context, ref);
+                  },
+                ),
+                _buildMenuItem(
+                  icon: Icons.privacy_tip_outlined,
+                  label: 'Privacy Policy',
+                  onTap: () {
+                    Navigator.pop(context);
+                    PrivacyPolicyScreen.show(context);
+                  },
                 ),
                 _buildMenuItem(
                   icon: Icons.settings_outlined,
                   label: 'Settings',
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showSettingsModal(context);
+                  },
                 ),
                 const Divider(),
                 _buildMenuItem(
@@ -894,6 +1049,253 @@ class _RiderDrawer extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showVehicleDetailsModal(BuildContext context, WidgetRef ref) {
+    final user = ref.read(currentUserProvider);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.neutral300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.directions_car_rounded,
+                      color: AppTheme.primaryColor,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Registered Vehicle',
+                          style: TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.neutral900,
+                          ),
+                        ),
+                        Text(
+                          'Verified Hatid Sundo Partner',
+                          style: TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 13,
+                            color: AppTheme.successColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              _buildVehicleInfoTile('Owner / Driver', user?.name ?? 'Registered Partner', Icons.person_outline),
+              _buildVehicleInfoTile('Vehicle Type', 'Motorcycle / Sedan', Icons.two_wheeler_rounded),
+              _buildVehicleInfoTile('Status', 'Active & Approved', Icons.verified_user_outlined, isHighlight: true),
+              _buildVehicleInfoTile('Region', 'Tanauan City, Leyte', Icons.location_on_outlined),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Close',
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static Widget _buildVehicleInfoTile(String label, String value, IconData icon, {bool isHighlight = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.neutral100,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.neutral200),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: isHighlight ? AppTheme.successColor : AppTheme.neutral600),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: const TextStyle(
+                fontFamily: 'Outfit',
+                fontSize: 14,
+                color: AppTheme.neutral600,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              value,
+              style: TextStyle(
+                fontFamily: 'Outfit',
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: isHighlight ? AppTheme.successColor : AppTheme.neutral900,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSettingsModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.neutral300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.secondaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.settings_outlined,
+                      color: AppTheme.secondaryColor,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  const Text(
+                    'Driver Settings',
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.neutral900,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.notifications_active_outlined, color: AppTheme.primaryColor),
+                title: const Text('Trip Request Sound', style: TextStyle(fontFamily: 'Outfit', fontWeight: FontWeight.w600)),
+                subtitle: const Text('Play alert chime for incoming rides', style: TextStyle(fontFamily: 'Outfit', fontSize: 12)),
+                trailing: Switch(value: true, onChanged: (v) {}, activeThumbColor: AppTheme.primaryColor),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.map_outlined, color: AppTheme.secondaryColor),
+                title: const Text('Offline Map Caching', style: TextStyle(fontFamily: 'Outfit', fontWeight: FontWeight.w600)),
+                subtitle: const Text('Preload Leyte map tiles for low data', style: TextStyle(fontFamily: 'Outfit', fontSize: 12)),
+                trailing: Switch(value: true, onChanged: (v) {}, activeThumbColor: AppTheme.secondaryColor),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.info_outline_rounded, color: AppTheme.neutral600),
+                title: const Text('App Version', style: TextStyle(fontFamily: 'Outfit', fontWeight: FontWeight.w600)),
+                trailing: const Text('1.1.8', style: TextStyle(fontFamily: 'Outfit', fontWeight: FontWeight.w700, color: AppTheme.neutral600)),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Done',
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

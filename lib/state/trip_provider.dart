@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/trip_model.dart';
@@ -33,6 +34,8 @@ class TripNotifier extends StateNotifier<TripState> {
   final bool _isRider;
   StreamSubscription? _tripSubscription;
   Timer? _pollTimer;
+  // Track the last realtime update time to skip polling when Realtime is healthy
+  DateTime? _lastRealtimeAt;
 
   TripNotifier(this._tripService, this._userId, this._isRider)
     : super(const TripState()) {
@@ -72,7 +75,8 @@ class TripNotifier extends StateNotifier<TripState> {
       trip,
     ) {
       if (!mounted) return;
-      print('DEBUG: Realtime trip update received: status=${trip.status}, riderId=${trip.riderId}');
+      _lastRealtimeAt = DateTime.now();
+      debugPrint('Realtime trip update: status=${trip.status}, riderId=${trip.riderId}');
       state = state.copyWith(activeTrip: trip);
 
       // If trip ended, clear subscription and polling
@@ -82,9 +86,19 @@ class TripNotifier extends StateNotifier<TripState> {
       }
     });
 
-    // Polling fallback every 5 seconds — ensures updates even if Realtime fails
-    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+    // Polling fallback every 15 seconds.
+    // Skipped when Realtime is healthy (fired within the last 12s) to avoid
+    // unnecessary DB reads. Only activates when Realtime is silent/flaky.
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) async {
       if (!mounted) return;
+
+      // Skip poll if realtime delivered an update recently
+      final lastRt = _lastRealtimeAt;
+      if (lastRt != null &&
+          DateTime.now().difference(lastRt) < const Duration(seconds: 12)) {
+        return;
+      }
+
       try {
         final trip = await _tripService.getTripById(tripId);
         if (trip != null && mounted) {
@@ -93,7 +107,7 @@ class TripNotifier extends StateNotifier<TripState> {
           if (current == null ||
               current.status != trip.status ||
               current.riderId != trip.riderId) {
-            print('DEBUG: Poll detected trip change: status=${trip.status}, riderId=${trip.riderId}');
+            debugPrint('Poll detected trip change: status=${trip.status}, riderId=${trip.riderId}');
             state = state.copyWith(activeTrip: trip);
             if (!trip.isActive) {
               _tripSubscription?.cancel();
@@ -102,7 +116,7 @@ class TripNotifier extends StateNotifier<TripState> {
           }
         }
       } catch (e) {
-        print('DEBUG: Poll trip error: $e');
+        debugPrint('Poll trip error: $e');
       }
     });
   }
@@ -118,15 +132,15 @@ class TripNotifier extends StateNotifier<TripState> {
     double? nearestDriverDistanceKm,
     String? vehicleType,
   }) async {
-    print('DEBUG requestRide: userId=$_userId');
+    debugPrint('requestRide: userId=$_userId');
     if (_userId == null) {
-      print('DEBUG requestRide: userId is null, returning');
+      debugPrint('requestRide: userId is null, returning');
       return null;
     }
 
     state = state.copyWith(isLoading: true);
     try {
-      print('DEBUG requestRide: calling createTrip');
+      debugPrint('requestRide: calling createTrip');
       final trip = await _tripService.createTrip(
         clientId: _userId,
         pickupLat: pickupLat,
@@ -138,14 +152,13 @@ class TripNotifier extends StateNotifier<TripState> {
         nearestDriverDistanceKm: nearestDriverDistanceKm,
         vehicleType: vehicleType,
       );
-      print('DEBUG requestRide: trip created with id=${trip.id}');
+      debugPrint('requestRide: trip created with id=${trip.id}');
 
       state = state.copyWith(activeTrip: trip, isLoading: false);
       _subscribeToTripUpdates(trip.id);
       return trip;
     } catch (e, st) {
-      print('DEBUG requestRide ERROR: $e');
-      print('DEBUG requestRide STACK: $st');
+      debugPrint('requestRide ERROR: $e\n$st');
       state = state.copyWith(error: e.toString(), isLoading: false);
       return null;
     }
@@ -162,7 +175,7 @@ class TripNotifier extends StateNotifier<TripState> {
       _subscribeToTripUpdates(trip.id);
       return true;
     } catch (e) {
-      print('DEBUG acceptRide ERROR: $e');
+      debugPrint('acceptRide ERROR: $e');
       // Provide a user-friendly error for race condition
       final errorMsg = e.toString().contains('no longer available')
           ? 'This ride was already accepted by another driver.'
@@ -299,8 +312,9 @@ final tripHistoryProvider = FutureProvider.family<List<TripModel>, int>((
 });
 
 /// Pending trips provider for riders to see available ride requests.
-/// Uses a StreamProvider with Supabase Realtime so new requests appear
-/// automatically without the rider needing to toggle offline/online.
+/// Uses Supabase Realtime for instant updates when new requests arrive.
+/// A 30-second fallback poll fires only when Realtime has been silent,
+/// acting as a dead-man's switch without generating constant DB load.
 final pendingTripsProvider = StreamProvider<List<TripModel>>((ref) async* {
   final tripService = ref.watch(tripServiceProvider);
   final user = ref.watch(currentUserProvider);
@@ -329,29 +343,39 @@ final pendingTripsProvider = StreamProvider<List<TripModel>>((ref) async* {
   // Emit the initial fetch immediately
   yield await fetchPending();
 
-  // Merged stream: Realtime events + periodic polling every 5 seconds
+  // Merged stream: Realtime events + 30-second fallback poll
   final controller = StreamController<List<TripModel>>();
 
-  // 1. Realtime subscription
+  // Track last realtime event time to suppress redundant polls
+  DateTime? lastRealtimeAt;
+
+  // 1. Realtime subscription — fires immediately on any trip insert/update
   final realtimeSub = tripService.subscribePendingTripChanges().listen(
     (_) async {
       try {
-        print('DEBUG: Realtime pending trip change detected, re-fetching...');
+        debugPrint('Realtime pending trip change detected, re-fetching...');
+        lastRealtimeAt = DateTime.now();
         final trips = await fetchPending();
         if (!controller.isClosed) controller.add(trips);
       } catch (e) {
-        print('DEBUG: Realtime pending re-fetch error: $e');
+        debugPrint('Realtime pending re-fetch error: $e');
       }
     },
   );
 
-  // 2. Polling fallback every 5 seconds
-  final pollTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+  // 2. Fallback poll every 30 seconds — skipped when Realtime is healthy.
+  // Only fires when Realtime has been silent for >28s (i.e., is flaky/offline).
+  final pollTimer = Timer.periodic(const Duration(seconds: 30), (_) async {
+    final lastRt = lastRealtimeAt;
+    if (lastRt != null &&
+        DateTime.now().difference(lastRt) < const Duration(seconds: 28)) {
+      return; // Realtime is healthy, skip this poll cycle
+    }
     try {
       final trips = await fetchPending();
       if (!controller.isClosed) controller.add(trips);
     } catch (e) {
-      print('DEBUG: Poll pending trips error: $e');
+      debugPrint('Poll pending trips error: $e');
     }
   });
 

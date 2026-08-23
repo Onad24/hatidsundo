@@ -19,7 +19,7 @@ class ClientHomeScreen extends ConsumerStatefulWidget {
   ConsumerState<ClientHomeScreen> createState() => _ClientHomeScreenState();
 }
 
-// Default fallback location (Tanauan, Batangas - app's home city)
+// Default fallback location (Tanauan, Leyte - app's home city)
 const _defaultLocation = LatLng(14.0864, 121.0159);
 
 class _ClientHomeScreenState extends ConsumerState<ClientHomeScreen> {
@@ -120,7 +120,9 @@ class _ClientHomeScreenState extends ConsumerState<ClientHomeScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Could not get your location. Using default map view.'),
+            content: Text(
+              'Could not get your location. Using default map view.',
+            ),
             duration: Duration(seconds: 4),
           ),
         );
@@ -157,7 +159,10 @@ class _ClientHomeScreenState extends ConsumerState<ClientHomeScreen> {
               child: Material(
                 color: Colors.transparent,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.orange.shade700,
                     borderRadius: BorderRadius.circular(8),
@@ -169,7 +174,11 @@ class _ClientHomeScreenState extends ConsumerState<ClientHomeScreen> {
                       Expanded(
                         child: Text(
                           'GPS unavailable — showing default location',
-                          style: TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'Outfit'),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontFamily: 'Outfit',
+                          ),
                         ),
                       ),
                     ],
@@ -178,21 +187,21 @@ class _ClientHomeScreenState extends ConsumerState<ClientHomeScreen> {
               ),
             ),
 
-          // Top bar with user info
+          // Top floating bar with user greeting and menu
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  // Menu / Profile
-                  _buildCircleButton(
+                  // Menu button
+                  _buildGlassCircleButton(
                     icon: Icons.menu_rounded,
                     onPressed: () => _showDrawer(context),
                   ),
                   const Spacer(),
-                  // Notifications
-                  _buildCircleButton(
-                    icon: Icons.notifications_outlined,
+                  // Notification bell
+                  _buildGlassCircleButton(
+                    icon: Icons.notifications_none_rounded,
                     onPressed: () {},
                   ),
                 ],
@@ -200,11 +209,11 @@ class _ClientHomeScreenState extends ConsumerState<ClientHomeScreen> {
             ),
           ),
 
-          // Bottom sheet with ride request
+          // Bottom sheet with ride request & quick actions
           DraggableScrollableSheet(
-            initialChildSize: 0.35,
-            minChildSize: 0.2,
-            maxChildSize: 0.5,
+            initialChildSize: 0.38,
+            minChildSize: 0.22,
+            maxChildSize: 0.65,
             builder: (context, scrollController) {
               return _buildBottomSheet(context, scrollController);
             },
@@ -214,100 +223,184 @@ class _ClientHomeScreenState extends ConsumerState<ClientHomeScreen> {
     );
   }
 
-  Widget _buildCircleButton({
+  Widget _buildGlassCircleButton({
     required IconData icon,
     required VoidCallback onPressed,
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.withValues(alpha: 0.95),
         shape: BoxShape.circle,
-        boxShadow: AppTheme.cardShadow,
+        border: Border.all(
+          color: AppTheme.neutral200.withValues(alpha: 0.6),
+          width: 1,
+        ),
+        boxShadow: AppTheme.floatingShadow,
       ),
       child: IconButton(
-        icon: Icon(icon, color: AppTheme.neutral700),
+        icon: Icon(icon, color: AppTheme.neutral800, size: 22),
         onPressed: onPressed,
       ),
     );
+  }
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
   }
 
   Widget _buildBottomSheet(
     BuildContext context,
     ScrollController scrollController,
   ) {
+    final user = ref.watch(currentUserProvider);
+    final firstName = user?.name.split(' ').first ?? 'there';
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 28,
+            offset: const Offset(0, -6),
           ),
         ],
       ),
       child: SingleChildScrollView(
         controller: scrollController,
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Handle
               Center(
                 child: Container(
-                  width: 40,
-                  height: 4,
+                  width: 44,
+                  height: 5,
                   decoration: BoxDecoration(
                     color: AppTheme.neutral300,
-                    borderRadius: BorderRadius.circular(2),
+                    borderRadius: BorderRadius.circular(3),
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
 
-              // Greeting
-              Text(
-                'Hello, ${ref.watch(currentUserProvider)?.name.split(' ').first ?? 'there'}! 👋',
-                style: const TextStyle(
-                  fontFamily: 'Outfit',
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.neutral900,
-                ),
+              // Dynamic Greeting with user name
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${_getGreeting()}, $firstName 👋',
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.neutral900,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      const Text(
+                        'Ready to ride? Find a driver nearby.',
+                        style: TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 14,
+                          color: AppTheme.neutral500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(height: 4),
-              const Text(
-                'Where would you like to go?',
-                style: TextStyle(
-                  fontFamily: 'Outfit',
-                  fontSize: 14,
-                  color: AppTheme.neutral500,
-                ),
-              ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
 
-              // Destination input (tap to go to request screen)
+              // High-End Destination Search Box
               GestureDetector(
                 onTap: () => context.push(Routes.clientRequestRide),
                 child: Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
                   decoration: BoxDecoration(
                     color: AppTheme.neutral100,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.neutral200),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppTheme.neutral200.withValues(alpha: 0.9),
+                      width: 1.2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Icons.search_rounded, color: AppTheme.neutral400),
-                      SizedBox(width: 12),
-                      Text(
-                        'Enter destination',
-                        style: TextStyle(
-                          fontFamily: 'Outfit',
-                          fontSize: 16,
-                          color: AppTheme.neutral400,
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.search_rounded,
+                          color: AppTheme.primaryColor,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Text(
+                          'Where are you heading?',
+                          style: TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.neutral700,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: AppTheme.primaryGradient,
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.radiusFull,
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Go',
+                              style: TextStyle(
+                                fontFamily: 'Outfit',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                            SizedBox(width: 4),
+                            Icon(
+                              Icons.arrow_forward_rounded,
+                              color: Colors.white,
+                              size: 14,
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -316,53 +409,96 @@ class _ClientHomeScreenState extends ConsumerState<ClientHomeScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Quick actions
+              // Quick Action Services Grid
               const Text(
-                'Quick actions',
+                'Services & Shortcuts',
                 style: TextStyle(
                   fontFamily: 'Outfit',
                   fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.neutral600,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.neutral800,
+                  letterSpacing: 0.2,
                 ),
               ),
               const SizedBox(height: 12),
+
               Row(
                 children: [
-                  _buildQuickAction(
-                    icon: Icons.history_rounded,
-                    label: 'History',
+                  _buildServiceTile(
+                    title: 'Book Ride',
+                    icon: Icons.local_taxi_rounded,
+                    gradient: AppTheme.primaryGradient,
+                    onTap: () => context.push(Routes.clientRequestRide),
+                  ),
+                  const SizedBox(width: 12),
+                  _buildServiceTile(
+                    title: 'Ride History',
+                    icon: Icons.receipt_long_rounded,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF38BDF8), Color(0xFF0284C7)],
+                    ),
                     onTap: () => context.push(Routes.clientHistory),
                   ),
                   const SizedBox(width: 12),
-                  _buildQuickAction(
+                  _buildServiceTile(
+                    title: 'My Profile',
                     icon: Icons.person_rounded,
-                    label: 'Profile',
+                    gradient: AppTheme.emeraldGradient,
                     onTap: () => context.push(Routes.clientProfile),
                   ),
-                  const SizedBox(width: 12),
-                  _buildQuickAction(
-                    icon: Icons.help_outline_rounded,
-                    label: 'Help',
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Help & Support'),
-                          content: const Text(
-                            'For assistance, please contact support at:\n\nhatidsundo.tanauan@gmail.com',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Close'),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
                 ],
+              ),
+              const SizedBox(height: 18),
+
+              // Trust & Safety Badge Banner
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppTheme.primaryColor.withValues(alpha: 0.06),
+                      AppTheme.secondaryColor.withValues(alpha: 0.06),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                  ),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.shield_outlined,
+                      color: AppTheme.primaryColor,
+                      size: 24,
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Safe & Verified Rides',
+                            style: TextStyle(
+                              fontFamily: 'Outfit',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.neutral800,
+                            ),
+                          ),
+                          Text(
+                            'All drivers are verified & trips tracked in real-time.',
+                            style: TextStyle(
+                              fontFamily: 'Outfit',
+                              fontSize: 12,
+                              color: AppTheme.neutral500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -371,32 +507,52 @@ class _ClientHomeScreenState extends ConsumerState<ClientHomeScreen> {
     );
   }
 
-  Widget _buildQuickAction({
+  Widget _buildServiceTile({
+    required String title,
     required IconData icon,
-    required String label,
+    required LinearGradient gradient,
     required VoidCallback onTap,
   }) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
           decoration: BoxDecoration(
-            color: AppTheme.neutral100,
-            borderRadius: BorderRadius.circular(12),
+            color: AppTheme.neutral50,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppTheme.neutral200.withValues(alpha: 0.8),
+            ),
           ),
           child: Column(
             children: [
-              Icon(icon, color: AppTheme.primaryColor),
-              const SizedBox(height: 8),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  gradient: gradient,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Icon(icon, color: Colors.white, size: 22),
+              ),
+              const SizedBox(height: 10),
               Text(
-                label,
+                title,
                 style: const TextStyle(
                   fontFamily: 'Outfit',
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.neutral700,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.neutral800,
                 ),
+                textAlign: TextAlign.center,
               ),
             ],
           ),
@@ -544,7 +700,18 @@ class _ClientDrawer extends ConsumerWidget {
                 _buildMenuItem(
                   icon: Icons.payment_rounded,
                   label: 'Payment Methods',
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showPaymentMethodsModal(context);
+                  },
+                ),
+                _buildMenuItem(
+                  icon: Icons.privacy_tip_outlined,
+                  label: 'Privacy Policy',
+                  onTap: () {
+                    Navigator.pop(context);
+                    PrivacyPolicyScreen.show(context);
+                  },
                 ),
                 _buildMenuItem(
                   icon: Icons.settings_outlined,
@@ -593,6 +760,184 @@ class _ClientDrawer extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showPaymentMethodsModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.neutral300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.payment_rounded,
+                      color: AppTheme.primaryColor,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  const Text(
+                    'Payment Methods',
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.neutral900,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              _buildPaymentOption(
+                'Cash Payment',
+                'Pay directly to driver upon arrival',
+                Icons.money_rounded,
+                isDefault: true,
+              ),
+              _buildPaymentOption(
+                'GCash',
+                'Scan driver QR code or direct number (Soon!)',
+                Icons.account_balance_wallet_outlined,
+              ),
+              _buildPaymentOption(
+                'Maya',
+                'Pay via Maya QR or transfer (Soon!)',
+                Icons.credit_card_rounded,
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Done',
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static Widget _buildPaymentOption(
+    String title,
+    String subtitle,
+    IconData icon, {
+    bool isDefault = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isDefault
+              ? AppTheme.primaryColor.withValues(alpha: 0.05)
+              : AppTheme.neutral100,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDefault
+                ? AppTheme.primaryColor.withValues(alpha: 0.3)
+                : AppTheme.neutral200,
+            width: 1.2,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: isDefault ? AppTheme.primaryColor : AppTheme.neutral600,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: isDefault
+                          ? AppTheme.primaryColor
+                          : AppTheme.neutral900,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 12,
+                      color: AppTheme.neutral600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isDefault)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'Default',
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

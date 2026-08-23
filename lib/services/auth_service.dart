@@ -17,7 +17,8 @@ class AuthService {
 
   AuthService(this._supabaseService)
     : _googleSignIn = GoogleSignIn(
-        clientId: EnvConfig.googleWebClientId,
+        clientId: kIsWeb ? EnvConfig.googleWebClientId : null,
+        serverClientId: EnvConfig.googleWebClientId,
         scopes: ['email', 'profile'],
       );
 

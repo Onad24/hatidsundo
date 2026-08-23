@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../state/state.dart';
+import 'privacy_policy_screen.dart';
 
 /// Client profile screen
 class ClientProfileScreen extends ConsumerStatefulWidget {
@@ -307,23 +308,7 @@ class _ClientProfileScreenState extends ConsumerState<ClientProfileScreen> {
   }
 
   void _showPrivacyDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Privacy Policy'),
-        content: const SingleChildScrollView(
-          child: Text(
-            'We value your privacy. Your data is used solely for providing ride-hailing services. We do not sell your personal information to third parties.\n\nFor the full policy, please visit our website.',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
+    PrivacyPolicyScreen.show(context);
   }
 
   void _showDeleteDialog() {
